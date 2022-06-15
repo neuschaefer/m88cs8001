@@ -35,9 +35,15 @@ class Image:
             yield entry
             offset += 0x30
 
-    def list(self):
+    def list(self, long=False):
+        if not long:
+            print('nr. flags    offset   size     crc32    name')
         for i, e in enumerate(self.get()):
-            print(f'Partition {i}:  {e}')
+            if long:
+                print(f'Partition {i}:  {e}')
+            else:
+                name = e.name.decode('ascii').strip('\0')
+                print(f'{i:2}  {e.flags:08x} {e.offset:8x} {e.size:8x} {e.crc:08x} {name}')
             if e.crc != NCRC:
                 self.f.seek(TABLE_BASE + e.offset)
                 d = self.f.read(e.size)
