@@ -6,7 +6,7 @@ CC := $(CROSS_COMPILE)gcc
 LD := $(CROSS_COMPILE)ld
 OBJCOPY := $(CROSS_COMPILE)objcopy
 CPUFLAGS := -EL -march=24kec
-CFLAGS := -Os -fno-builtin -nostdlib -Wall -Wno-unused-function -Wno-main -fno-pic
+CFLAGS := -Os -fno-builtin -nostdlib -Wall -Wextra -Wno-unused-function -Wno-main -fno-pic
 LDFLAGS := -T monitor.ld -EL
 
 all: start.bin monitor.bin
