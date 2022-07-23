@@ -49,7 +49,7 @@ class Lolmon:
         self.device = device
         self.s = serial.Serial(device, baudrate=115200, timeout=1.0)
         self.prompt = b'> '
-        self.debug = False
+        self.debug = 0
         self.echo_attempts = 3
 
     def connection_test(self):
@@ -60,7 +60,7 @@ class Lolmon:
             print("lolmon detected!")
 
     def debug_log(self, prefix, s):
-        if self.debug:
+        if self.debug >= 2:
             error(f'{prefix}: {s}')
         return s
 
@@ -95,7 +95,7 @@ class Lolmon:
             assert len(chunk) >= 1
             self.s.write(chunk)
             echo = self.s.read(len(chunk))
-            if self.debug:
+            if self.debug >= 2:
                 error(f'input {chunk} -> {echo}')
             if echo != chunk:
                 error(f'Echo error! {chunk} -> {echo}')
@@ -114,7 +114,8 @@ class Lolmon:
                     # Clear the prompt (send Ctrl-U)
                     self.s.write(b'\025')
                     time.sleep(0.01)
-                    self.s.read_all()
+                    while self.s.read_all() != b'':
+                        time.sleep(0.01)
                     # ... and retry
                     continue
 
@@ -143,10 +144,18 @@ class Lolmon:
         #print('poke %s %08x %s' % (cmd, addr, value))
         if isinstance(value, bytes):
             value = [x for x in value]
+        if hasattr(value, '__iter__'):
+            value = list(value)
         if isinstance(value, list):
-            for v in value:
-                self.writeX(cmd, size, addr, v)
-                addr += size
+            v = value
+            while len(v) > 0:
+                line = f'{cmd} {addr:x}'; i = 0
+                while i < 14 and i < len(v) and len(line + f' {v[i]}') <= 128:
+                    line += f' {v[i]}'
+                    i += 1
+                self.run_command(line)
+                v = v[i:]
+                addr += i * size
         else:
             self.run_command("%s %08x %#x" % (cmd, addr, value))
 
@@ -231,8 +240,6 @@ class Lolmon:
         self.run_command_noreturn('call %x %d %d %d %d' % (addr, a, b, c, d))
 
     def call_linux_and_run_microcom(self, addr):
-        emc0.stop() # No DMA please!
-        emc1.stop()
         self.call(addr, 0, 0xffffffff, 0)
         os.system(f'busybox microcom -s 115200 /dev/ttyUSB0')
 
