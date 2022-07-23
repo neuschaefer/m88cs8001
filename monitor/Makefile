@@ -9,7 +9,7 @@ CPUFLAGS := -EL -march=24kec
 CFLAGS := -Os -fno-builtin -nostdlib -Wall -Wextra -Wno-unused-function -Wno-main -fno-pic
 LDFLAGS := -T monitor.ld -EL
 
-all: monitor.bin scream.bin
+all: monitor.bin scream.bin testcard.bin
 
 %.o: %.S
 	$(CC) -c $(CPUFLAGS) $< -o $@
