@@ -1,0 +1,10 @@
+name: build
+on: [push]
+jobs:
+  build:
+    runs-on: debian-11
+    steps:
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y gcc-mips-linux-gnu
+      - uses: actions/checkout@v2
+      - run: make

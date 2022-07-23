@@ -397,7 +397,7 @@ static void cache_flush_range(unsigned long addr, size_t len)
 		synci_line_p(p);
 }
 
-static void cmd_sync(int, char **)
+static void cmd_sync(int argc, char **argv)
 {
 	cache_flush_range(0x80000000, 64 * MiB);
 }

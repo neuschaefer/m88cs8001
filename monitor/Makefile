@@ -21,10 +21,7 @@ all: start.bin monitor.bin
 	$(OBJCOPY) -O binary $< $@
 
 start.bin: start.o
-	objcopy -j .text -O binary $< $@
-
-%.bin: %.elf
-	$(OBJCOPY) -O binary $< $@
+	$(OBJCOPY) -j .text -O binary $< $@
 
 MONITOR_OBJS = start.o monitor.o
 monitor.elf: $(MONITOR_OBJS) monitor.ld
