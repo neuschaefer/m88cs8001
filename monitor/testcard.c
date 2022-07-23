@@ -53,4 +53,18 @@ static void main(void)
 		CHROMA[CPX1(x + 28, y + 28)] = y / 128;
 		CHROMA[CPX2(x + 28, y + 28)] = (y % 128) * 2;
 	}
+
+	/* Chroma space at luma=0.5 */
+	for (int i = 0; i < 514; i++) {
+		LUMA[LPX(1100 + i,   27)]        = 0xff;  // top
+		LUMA[LPX(1100 + i,   28 + 512)]  = 0xff;  // bottom
+		LUMA[LPX(1099,       27 + i)]    = 0xff;  // left
+		LUMA[LPX(1100 + 512, 27 + i)]    = 0xff;  // right
+	}
+	for (int x = 0; x < 512; x++)
+	for (int y = 0; y < 512; y++) {
+		LUMA  [LPX (x + 1100, y + 28)] = 0x80;
+		CHROMA[CPX1(x + 1100, y + 28)] = x / 2;
+		CHROMA[CPX2(x + 1100, y + 28)] = y / 2;
+	}
 }
