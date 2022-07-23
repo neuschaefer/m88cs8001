@@ -9,7 +9,7 @@ CPUFLAGS := -EL -march=24kec
 CFLAGS := -Os -fno-builtin -nostdlib -Wall -Wextra -Wno-unused-function -Wno-main -fno-pic
 LDFLAGS := -T monitor.ld -EL
 
-all: start.bin monitor.bin
+all: monitor.bin scream.bin
 
 %.o: %.S
 	$(CC) -c $(CPUFLAGS) $< -o $@
@@ -20,7 +20,7 @@ all: start.bin monitor.bin
 %.bin: %.elf
 	$(OBJCOPY) -O binary $< $@
 
-start.bin: start.o
+%.bin: %.o
 	$(OBJCOPY) -j .text -O binary $< $@
 
 MONITOR_OBJS = start.o monitor.o
@@ -30,4 +30,4 @@ monitor.elf: $(MONITOR_OBJS) monitor.ld
 .PHONY: clean
 
 clean:
-	rm -f start.bin monitor.bin *.o
+	rm -f monitor.bin *.o
