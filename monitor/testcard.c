@@ -54,17 +54,23 @@ static void main(void)
 		CHROMA[CPX2(x + 28, y + 28)] = (y % 128) * 2;
 	}
 
-	/* Chroma space at luma=0.5 */
-	for (int i = 0; i < 514; i++) {
-		LUMA[LPX(1100 + i,   27)]        = 0xff;  // top
-		LUMA[LPX(1100 + i,   28 + 512)]  = 0xff;  // bottom
-		LUMA[LPX(1099,       27 + i)]    = 0xff;  // left
-		LUMA[LPX(1100 + 512, 27 + i)]    = 0xff;  // right
-	}
-	for (int x = 0; x < 512; x++)
-	for (int y = 0; y < 512; y++) {
-		LUMA  [LPX (x + 1100, y + 28)] = 0x80;
-		CHROMA[CPX1(x + 1100, y + 28)] = x / 2;
-		CHROMA[CPX2(x + 1100, y + 28)] = y / 2;
+	/* Chroma space at different lumas */
+	for (int panel = 0; panel < 12; panel++) {
+		int X = 1100 + (panel % 3) * 260;
+		int Y = 28 + (panel / 3) * 260;
+		uint8_t luma = panel * 12;
+
+		for (int i = 0; i < 256 + 2; i++) {
+			LUMA[LPX(X + i,   Y - 1)]    = 0xff;  // top
+			LUMA[LPX(X + i,   Y + 256)]  = 0xff;  // bottom
+			LUMA[LPX(X - 1,   Y + i)]    = 0xff;  // left
+			LUMA[LPX(X + 256, Y + i)]    = 0xff;  // right
+		}
+		for (int x = 0; x < 256; x++)
+		for (int y = 0; y < 256; y++) {
+			LUMA  [LPX (x + X, y + Y)] = luma;
+			CHROMA[CPX1(x + X, y + Y)] = x;
+			CHROMA[CPX2(x + X, y + Y)] = y;
+		}
 	}
 }
