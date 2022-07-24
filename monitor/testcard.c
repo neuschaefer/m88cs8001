@@ -20,15 +20,15 @@ static void memset(void *s, int c, size_t n)
 }
 
 /* Luma pixel coordinates: One row/column per pixel */
-#define LPX(x, y) ((x) + 1920 * (y))
+#define YPX(x, y) ((x) + 1920 * (y))
 
 /* Chroma pixel coordinates:
  * - Rows are subsampled, each row in the chroma buffer is applied to two rows
  *   of pixels.
  * - Columns are subsampled: Every two pixels currespond to two bytes
  */
-#define CPX1(x, y) (((x) & ~1) + (1920 * ((y) / 2)))
-#define CPX2(x, y) (((x) |  1) + (1920 * ((y) / 2)))
+#define CrPX(x, y) (((x) & ~1) + (1920 * ((y) / 2)))
+#define CbPX(x, y) (((x) |  1) + (1920 * ((y) / 2)))
 
 static void main(void)
 {
@@ -40,37 +40,39 @@ static void main(void)
 
 	/* Border */
 	for (int i = 0; i < 1026; i++) {
-		LUMA[LPX(27 + i,    27)]        = 0xff;  // top
-		LUMA[LPX(27 + i,    28 + 1024)] = 0xff;  // bottom
-		LUMA[LPX(27,        27 + i)]    = 0xff;  // left
-		LUMA[LPX(28 + 1024, 27 + i)]    = 0xff;  // right
+		LUMA[YPX(27 + i,    27)]        = 0xff;  // top
+		LUMA[YPX(27 + i,    28 + 1024)] = 0xff;  // bottom
+		LUMA[YPX(27,        27 + i)]    = 0xff;  // left
+		LUMA[YPX(28 + 1024, 27 + i)]    = 0xff;  // right
 	}
 
 	/* First square: luma vs. chroma */
 	for (int x = 0; x < 1024; x++)
 	for (int y = 0; y < 1024; y++) {
-		LUMA  [LPX (x + 28, y + 28)] = x / 4;
-		CHROMA[CPX1(x + 28, y + 28)] = y / 128;
-		CHROMA[CPX2(x + 28, y + 28)] = (y % 128) * 2;
+		int stripe = y / 114;
+
+		LUMA  [YPX (x + 28, y + 28)] = x / 4;
+		CHROMA[CrPX(x + 28, y + 28)] = (stripe % 3) * 85;
+		CHROMA[CbPX(x + 28, y + 28)] = (stripe / 3) * 85;
 	}
 
 	/* Chroma space at different lumas */
 	for (int panel = 0; panel < 12; panel++) {
 		int X = 1100 + (panel % 3) * 260;
 		int Y = 28 + (panel / 3) * 260;
-		uint8_t luma = panel * 12;
+		uint8_t luma = panel * 23;
 
 		for (int i = 0; i < 256 + 2; i++) {
-			LUMA[LPX(X + i,   Y - 1)]    = 0xff;  // top
-			LUMA[LPX(X + i,   Y + 256)]  = 0xff;  // bottom
-			LUMA[LPX(X - 1,   Y + i)]    = 0xff;  // left
-			LUMA[LPX(X + 256, Y + i)]    = 0xff;  // right
+			LUMA[YPX(X + i,   Y - 1)]    = 0xff;  // top
+			LUMA[YPX(X + i,   Y + 256)]  = 0xff;  // bottom
+			LUMA[YPX(X - 1,   Y + i)]    = 0xff;  // left
+			LUMA[YPX(X + 256, Y + i)]    = 0xff;  // right
 		}
 		for (int x = 0; x < 256; x++)
 		for (int y = 0; y < 256; y++) {
-			LUMA  [LPX (x + X, y + Y)] = luma;
-			CHROMA[CPX1(x + X, y + Y)] = x;
-			CHROMA[CPX2(x + X, y + Y)] = y;
+			LUMA  [YPX (x + X, y + Y)] = luma;
+			CHROMA[CrPX(x + X, y + Y)] = x;
+			CHROMA[CbPX(x + X, y + Y)] = y;
 		}
 	}
 }
