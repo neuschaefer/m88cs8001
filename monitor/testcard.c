@@ -63,10 +63,10 @@ static void main(void)
 		uint8_t luma = panel * 23;
 
 		for (int i = 0; i < 256 + 2; i++) {
-			LUMA[YPX(X + i,   Y - 1)]    = 0xff;  // top
-			LUMA[YPX(X + i,   Y + 256)]  = 0xff;  // bottom
-			LUMA[YPX(X - 1,   Y + i)]    = 0xff;  // left
-			LUMA[YPX(X + 256, Y + i)]    = 0xff;  // right
+			LUMA[YPX(X - 1 + i, Y - 1)]     = 0xff;  // top
+			LUMA[YPX(X - 1 + i, Y + 256)]   = 0xff;  // bottom
+			LUMA[YPX(X - 1,     Y - 1 + i)] = 0xff;  // left
+			LUMA[YPX(X + 256,   Y - 1 + i)] = 0xff;  // right
 		}
 		for (int x = 0; x < 256; x++)
 		for (int y = 0; y < 256; y++) {
