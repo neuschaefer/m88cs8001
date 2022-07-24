@@ -2,7 +2,7 @@ name: build
 on: [push]
 jobs:
   build:
-    runs-on: debian-11
+    runs-on: ubuntu-latest
     steps:
       - run: sudo apt-get update
       - run: sudo apt-get install -y gcc-mips-linux-gnu
