@@ -52,8 +52,8 @@ static void main(void)
 		int stripe = y / 114;
 
 		LUMA  [YPX (x + 28, y + 28)] = x / 4;
-		CHROMA[CrPX(x + 28, y + 28)] = (stripe % 3) * 85;
-		CHROMA[CbPX(x + 28, y + 28)] = (stripe / 3) * 85;
+		CHROMA[CrPX(x + 28, y + 28)] = (stripe % 3) * 127;
+		CHROMA[CbPX(x + 28, y + 28)] = (stripe / 3) * 127;
 	}
 
 	/* Chroma space at different lumas */
