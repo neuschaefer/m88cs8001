@@ -32,11 +32,11 @@ static void memset(void *s, int c, size_t n)
 
 static void main(void)
 {
-	uint8_t *LUMA   = (void *)0xa1fe77e0;
-	uint8_t *CHROMA = (void *)0xa21e5840;
+	uint8_t *LUMA   = (void *)(0xa0000000 | *((uint32_t *)0xbf441020) << 3);
+	uint8_t *CHROMA = (void *)(0xa0000000 | *((uint32_t *)0xbf44101c) << 3);
 
 	memset(LUMA, 0, 1920 * 1080);
-	memset(CHROMA, 0x80, 1920 * 1080);
+	memset(CHROMA, 0x80, 1920 * 540);
 
 	/* Border */
 	for (int i = 0; i < 1026; i++) {
