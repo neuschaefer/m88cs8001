@@ -47,10 +47,11 @@ def error(s):
 class Lolmon:
     def __init__(self, device):
         self.device = device
-        self.s = serial.Serial(device, baudrate=115200, timeout=1.0)
+        self.s = serial.Serial(device, baudrate=115200, timeout=0.2)
         self.prompt = b'> '
         self.debug = 0
         self.echo_attempts = 3
+        self.chunksize = 0x38
 
     def connection_test(self):
         self.s.write(b'\n')
@@ -84,14 +85,14 @@ class Lolmon:
             time.sleep(0.05)
         self.run_command('')
 
-    def enter_with_echo(self, cmd):
+    def enter_with_echo(self, cmd, chunksize):
         if isinstance(cmd, str):
             cmd = cmd.encode('UTF-8')
         assert not b'\n' in cmd
 
         pos = 0
         while pos < len(cmd):
-            chunk = cmd[pos:pos+0x38]
+            chunk = cmd[pos:pos+chunksize]
             assert len(chunk) >= 1
             self.s.write(chunk)
             echo = self.s.read(len(chunk))
@@ -106,10 +107,11 @@ class Lolmon:
 
     def run_command(self, cmd):
         try:
+            chunksize = self.chunksize
             for _ in range(self.echo_attempts):
                 if self.debug:
                     error(':> %s' % cmd)
-                good = self.enter_with_echo(cmd)
+                good = self.enter_with_echo(cmd, chunksize)
                 if not good:
                     # Clear the prompt (send Ctrl-U)
                     self.s.write(b'\025')
@@ -117,6 +119,7 @@ class Lolmon:
                     while self.s.read_all() != b'':
                         time.sleep(0.01)
                     # ... and retry
+                    chunksize = 1
                     continue
 
                 self.s.write(b'\n')
@@ -136,7 +139,7 @@ class Lolmon:
     def run_command_noreturn(self, cmd):
         if self.debug:
             error(':> %s' % cmd)
-        self.enter_with_echo(cmd)
+        self.enter_with_echo(cmd, self.chunksize)
         self.s.write(b'\n')
         assert self.s.read(2) == b'\r\n'
 
