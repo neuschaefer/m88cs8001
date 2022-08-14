@@ -324,14 +324,69 @@ class Exceptions(Block):
             self.write32(o + 4, Asm.NOP())
         self.l.run_command('sync')
 
-UART = Block
 
+class SPI(Block):
+    TRXFIFO = 0x0
+    TRXLEN = 0x120
+    CONTROL = 0x124
+    STATUS = 0x140
+    CMDFIFO = 0x148
+
+    def dump(self):
+        self.l.dump32(self.base + 0x100, 0x20)
+
+    def init(self):
+        self.write32(0x104, 0x67050703)
+        self.write32(0x128, 0x100807)
+        self.l.write32(0xbf510008, self.l.read32(0xbf510008) |  (7 << 20))
+        self.l.write32(0xbf510018, self.l.read32(0xbf510018) & ~(7 << 20))
+        self.l.write32(0xbf510018, self.l.read32(0xbf510018) |  (7 << 20))
+        self.l.write32(0xbf510008, self.l.read32(0xbf510008) & ~(7 << 20))
+        self.write32(self.CONTROL, 0x200)
+
+    def do_transfer(self, cmd, tx, rxlen):
+        assert len(tx) == 0 or rxlen == 0
+        assert len(cmd) < 0x20
+
+        control = len(cmd) << 16
+        #control |= 0x00202000
+        if len(tx):
+            control |= 3
+            self.write32(self.TRXLEN, len(tx))
+        else:
+            control |= 5
+            self.write32(self.TRXLEN, rxlen)
+        self.write32(self.CONTROL, self.read32(self.CONTROL) & 0x1e00)
+        self.write32(self.CONTROL, self.read32(self.CONTROL) | control)
+        self.dump()
+
+        for x in cmd:
+            self.write32(self.CMDFIFO, x)
+        self.dump()
+
+        if len(tx):
+            self.write32(self.CONTROL, control)
+            print('TODO')
+        elif rxlen:
+            self.write32(self.TRXLEN, len(tx))
+            self.write32(self.CONTROL, self.read32(self.CONTROL) & 0x1e00)
+            self.write32(self.CONTROL, self.read32(self.CONTROL) | control)
+            self.dump()
+            while self.read32(self.STATUS) & 0x3f:
+                print(f'FIFO RX: {self.read32(self.TRXFIFO):08x}')
+
+        self.dump()
+
+UART = Block
 
 l = Lolmon('/dev/ttyUSB0')
 l.connection_test()
 exc = Exceptions(l, 0x80000000)
 uart0 = UART(l, 0xbf540000)
 uart1 = UART(l, 0xbf550000)
+spi0 = SPI(l, 0xbf010000)
+spi1 = SPI(l, 0xbf159000)
+spi0.init()
 
 def scan_mem():
     for i in range(0x80000000, 0x80000000 + 64 * MiB, 0x8000):
