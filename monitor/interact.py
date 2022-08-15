@@ -29,6 +29,15 @@ def get_be16(data, offset):
 def get_be32(data, offset):
     return get_be16(data, offset) << 16 | get_be16(data, offset+2)
 
+def to_be24(n):
+    return [n >> 16 & 0xff, n >> 8 & 0xff, n & 0xff]
+
+def to_be32(n):
+    return [n >> 24 & 0xff, n >> 16 & 0xff, n >> 8 & 0xff, n & 0xff]
+
+def to_le32(n):
+    return [n & 0xff, n >> 8 & 0xff, n >> 16 & 0xff, n >> 24 & 0xff]
+
 def hexdump(data):
     if data:
         for offset in range(0, len(data), 16):
@@ -325,17 +334,48 @@ class Exceptions(Block):
         self.l.run_command('sync')
 
 
+class CLK(Block):
+    SPI0_MUX = 0x4c
+    SPI0_MUX_SLOW = 0
+    SPI0_MUX_594M = 2
+    SPI0_MUX_405M = 3
+    SPI0_MUX_SLOW_DIV2 = 4
+    SPI0_MUX_306M = 5
+    SPI0_MUX_297M = 6
+    SPI0_MUX_202M5 = 7
+
+    def set_spi0_mux(self, value):
+        self.write32(self.SPI0_MUX, self.read32(self.SPI0_MUX) & ~7 | value)
+
 class SPI(Block):
     TRXFIFO = 0x0
     TRXLEN = 0x120
     CONTROL = 0x124
+    CONTROL_CMDLEN_MASK = 0x003f0000
+    CONTROL_CMDLEN_SHIFT = 16
     STATUS = 0x140
+    STATUS_BUSY = BIT(16)
+    STATUS_TXLVL_MASK = 0x00003f00
+    STATUS_TXLVL_SHIFT = 8
+    STATUS_RXLVL_MASK = 0x0000003f
+    STATUS_RXLVL_SHIFT = 0
     CMDFIFO = 0x148
+
 
     def dump(self):
         self.l.dump32(self.base + 0x100, 0x20)
 
+    def diag(self):
+        control = self.read32(self.CONTROL)
+        status = self.read32(self.STATUS)
+        busy = 'BUSY' if status & self.STATUS_BUSY else 'idle'
+        cmd = (control & self.CONTROL_CMDLEN_MASK) >> self.CONTROL_CMDLEN_SHIFT
+        rx = (status & self.STATUS_RXLVL_MASK) >> self.STATUS_RXLVL_SHIFT
+        tx = (status & self.STATUS_TXLVL_MASK) >> self.STATUS_TXLVL_SHIFT
+        print(f'SPI @ {self.base:08x}, {busy}, FIFOs: CMD {cmd}, RX {rx}, TX {tx}')
+
     def init(self):
+        clk.set_spi0_mux(clk.SPI0_MUX_SLOW)
         self.write32(0x104, 0x67050703)
         self.write32(0x128, 0x100807)
         self.l.write32(0xbf510008, self.l.read32(0xbf510008) |  (7 << 20))
@@ -358,34 +398,34 @@ class SPI(Block):
             self.write32(self.TRXLEN, rxlen)
         self.write32(self.CONTROL, self.read32(self.CONTROL) & 0x1e00)
         self.write32(self.CONTROL, self.read32(self.CONTROL) | control)
-        self.dump()
 
         for x in cmd:
             self.write32(self.CMDFIFO, x)
-        self.dump()
 
         if len(tx):
             self.write32(self.CONTROL, control)
             print('TODO')
         elif rxlen:
-            self.write32(self.TRXLEN, len(tx))
-            self.write32(self.CONTROL, self.read32(self.CONTROL) & 0x1e00)
-            self.write32(self.CONTROL, self.read32(self.CONTROL) | control)
-            self.dump()
-            while self.read32(self.STATUS) & 0x3f:
-                print(f'FIFO RX: {self.read32(self.TRXFIFO):08x}')
+            a = []
+            for i in range(0, rxlen, 4):
+                while (self.read32(self.STATUS) & self.STATUS_RXLVL_MASK) == 0:
+                    pass
+                a += to_le32(self.read32(self.TRXFIFO))
+            return a[0:rxlen]
 
-        self.dump()
+    def flash_read(self, addr, length):
+        return self.do_transfer([0x03] + to_be24(addr), [], length)
 
 UART = Block
 
 l = Lolmon('/dev/ttyUSB0')
 l.connection_test()
 exc = Exceptions(l, 0x80000000)
-uart0 = UART(l, 0xbf540000)
-uart1 = UART(l, 0xbf550000)
 spi0 = SPI(l, 0xbf010000)
 spi1 = SPI(l, 0xbf159000)
+clk = CLK(l, 0xbf500000)
+uart0 = UART(l, 0xbf540000)
+uart1 = UART(l, 0xbf550000)
 spi0.init()
 
 def scan_mem():
