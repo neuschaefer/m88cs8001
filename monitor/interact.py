@@ -416,16 +416,153 @@ class SPI(Block):
     def flash_read(self, addr, length):
         return self.do_transfer([0x03] + to_be24(addr), [], length)
 
+
+class GPIO(Block):
+    OUT = [0x00, 0x10]
+    DIR = [0x04, 0x14]
+    IN  = [0x08, 0x18]
+
+    def set(self, offset, value):
+        self.setclr32(self.OUT[offset // 32], offset % 32, value)
+
+    def dir(self, offset, value):
+        self.setclr32(self.DIR[offset // 32], offset % 32, value)
+
+    def get(self, offset):
+        return bool(self.read32(self.IN[offset // 32]) & BIT(offset % 32))
+
+class GPIOWrap:
+    def __init__(self, g):
+        self.g = g
+
+    def set(self, offset, value):
+        self.g[offset // 64].set(offset % 64, value)
+
+    def dir(self, offset, value):
+        self.g[offset // 64].dir(offset % 64, value)
+
+    def get(self, offset):
+        return self.g[offset // 64].get(offset % 64)
+
+class I2C(Block):
+    STATUS = 0x04
+    WRITE = 0x08
+    READ = 0x0c
+    CONTROL = 0x14
+    CONTROL_DONE  = 0x04
+    CONTROL_SPECIAL = 0x04
+    CONTROL_READ  = 0x10
+    CONTROL_WRITE = 0x20
+    CONTROL_STOP  = 0x40
+    CONTROL_START = 0x80
+
+    def write(self, value, start):
+        control = self.CONTROL_WRITE
+        if start:
+            control |= self.CONTROL_START
+
+        self.write8(self.WRITE, value)
+        self.write8(self.CONTROL, control)
+        while self.read8(self.CONTROL) != self.CONTROL_DONE:
+            print(hex(self.read8(self.CONTROL)))
+
+        status = self.read8(self.STATUS)
+        if status:
+            pass
+            #print(f'I2C status: {status:02x}')
+
+    def stop(self):
+        self.write8(self.CONTROL, self.CONTROL_STOP)
+        while self.read8(self.CONTROL) != self.CONTROL_DONE:
+            print(hex(self.read8(self.CONTROL)))
+        status = self.read8(self.STATUS)
+        if status:
+            pass
+            #print(f'I2C status: {status:02x}')
+
+    def read(self, special):
+        control = self.CONTROL_READ
+        if special:
+            control |= self.CONTROL_SPECIAL
+
+        self.write8(self.CONTROL, control)
+        while self.read8(self.CONTROL) != self.CONTROL_DONE:
+            print(hex(self.read8(self.CONTROL)))
+
+        status = self.read8(self.STATUS)
+        if status:
+            pass
+            #print(f'I2C status: {status:02x}')
+
+        return self.read8(self.READ)
+
+# FD650B-S frontpanel
+class Frontpanel:
+    def __init__(self, i2c):
+        self.i2c = i2c
+
+    def run_command(self, cmd):
+        self.i2c.write((cmd >> 7) & 0x3e | 0x40, 1)
+        self.i2c.write(cmd & 0xff, 0)
+        self.i2c.stop()
+
+    def enable(self):
+        self.run_command(0x441)
+
+    # Digits:
+    #    0
+    #    ——
+    # 5 |  | 1
+    #   6——
+    # 4 |  | 2
+    #    ——
+    #    3
+    def set_digit(self, num, value):
+        assert 0 <= num <= 3
+        assert value & 0xff == value
+        self.run_command((0x14 + num) << 8 | value)
+
+    def set_digits(self, digits):
+        for i, d in enumerate(digits):
+            self.set_digit(i, d)
+
+    # Keycodes:
+    # - Left:  0x1f
+    # - Right: 0x07
+    # - Power: 0x17
+    # - Add 0x40 while key is pressed
+    def get_keys(self):
+        self.i2c.write(0x40 | 7 << 1 | 1, 1)
+        keys = self.i2c.read(1)
+        self.i2c.stop()
+        return keys
+
+    def hack(self):
+        self.enable()
+        self.set_digits([0b1110110, 0b1110111, 0b111001, 0b111001])
+
+
 UART = Block
 
 l = Lolmon('/dev/ttyUSB0')
 l.connection_test()
 exc = Exceptions(l, 0x80000000)
 spi0 = SPI(l, 0xbf010000)
+gpio0 = GPIO(l, 0xbf0a0000)
 spi1 = SPI(l, 0xbf159000)
 clk = CLK(l, 0xbf500000)
 uart0 = UART(l, 0xbf540000)
 uart1 = UART(l, 0xbf550000)
+gpio1 = GPIO(l, 0xbf155000)
+i2c0 = I2C(l, 0xbf560000)
+i2c1 = I2C(l, 0xbf570000)
+i2c2 = I2C(l, 0xbf158000)
+i2c3 = I2C(l, 0xbf15c000)
+i2c4 = I2C(l, 0xbf580000)
+gpio = GPIOWrap([gpio0, gpio1])
+fp = Frontpanel(i2c2)
+
+
 spi0.init()
 
 def scan_mem():
