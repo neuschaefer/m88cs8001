@@ -2,13 +2,10 @@
 
 	.text
 entry:
-	# Set stack pointer
-	lui	sp, 0x8001
-
 	bal	here
 here:
 
-	li	t2, 0x8000800c
+	li	t2, 0x80008008
 	beq	ra, t2, new_world
 
 	lui	t0, 0xbf54
@@ -21,8 +18,8 @@ here:
 
 	# Relocate lolmon to its designated home at 0x80008000
 	# - copy
-	addiu	a0, ra, -0xc		# source address
-	addiu	a1, t2, -0xc		# destination address
+	addiu	a0, ra, -0x8		# source address
+	addiu	a1, t2, -0x8		# destination address
 	li	a2, 8192		# size in bytes
 copy_loop:
 	lw	t0, 0x00(a0)
@@ -54,6 +51,9 @@ copy_loop:
 	jr.hb	t9
 
 new_world:
+	# Set stack pointer
+	lui	sp, 0x8001
+
 	bal	main
 
 	# If main returns, print 'z' and hang.
