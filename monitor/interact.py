@@ -35,8 +35,20 @@ def to_be24(n):
 def to_be32(n):
     return [n >> 24 & 0xff, n >> 16 & 0xff, n >> 8 & 0xff, n & 0xff]
 
+def from_be32(data):
+    word = 0
+    for i, b in enumerate(data[:4]):
+        word |= b << (3 - i) * 8
+    return word
+
 def to_le32(n):
     return [n & 0xff, n >> 8 & 0xff, n >> 16 & 0xff, n >> 24 & 0xff]
+
+def from_le32(data):
+    word = 0
+    for i, b in enumerate(data[:4]):
+        word |= b << i * 8
+    return word
 
 def hexdump(data):
     if data:
@@ -351,11 +363,14 @@ class SPI(Block):
     TRXFIFO = 0x0
     TRXLEN = 0x120
     CONTROL = 0x124
+    CONTROL_TX = 3
+    CONTROL_RX = 5
     CONTROL_CMDLEN_MASK = 0x003f0000
     CONTROL_CMDLEN_SHIFT = 16
     STATUS = 0x140
     STATUS_BUSY = BIT(16)
     STATUS_TXLVL_MASK = 0x00003f00
+    STATUS_TXLVL_HIGH = 0x00001e00  # not sure
     STATUS_TXLVL_SHIFT = 8
     STATUS_RXLVL_MASK = 0x0000003f
     STATUS_RXLVL_SHIFT = 0
@@ -370,31 +385,39 @@ class SPI(Block):
         status = self.read32(self.STATUS)
         busy = 'BUSY' if status & self.STATUS_BUSY else 'idle'
         cmd = (control & self.CONTROL_CMDLEN_MASK) >> self.CONTROL_CMDLEN_SHIFT
+        trx = self.read32(self.TRXLEN)
         rx = (status & self.STATUS_RXLVL_MASK) >> self.STATUS_RXLVL_SHIFT
         tx = (status & self.STATUS_TXLVL_MASK) >> self.STATUS_TXLVL_SHIFT
-        print(f'SPI @ {self.base:08x}, {busy}, FIFOs: CMD {cmd}, RX {rx}, TX {tx}')
+        print(f'SPI @ {self.base:08x}, {busy}, FIFO promises: CMD {cmd}, TRX {trx}; levels: RX {rx}, TX {tx}')
 
     def init(self):
+        # useful for testing with a logic analyzer
         clk.set_spi0_mux(clk.SPI0_MUX_SLOW)
-        self.write32(0x104, 0x67050703)
-        self.write32(0x128, 0x100807)
-        self.l.write32(0xbf510008, self.l.read32(0xbf510008) |  (7 << 20))
-        self.l.write32(0xbf510018, self.l.read32(0xbf510018) & ~(7 << 20))
-        self.l.write32(0xbf510018, self.l.read32(0xbf510018) |  (7 << 20))
-        self.l.write32(0xbf510008, self.l.read32(0xbf510008) & ~(7 << 20))
+
+        #self.write32(0x104, 0x67050703)
+        #self.write32(0x128, 0x100807)
+        #self.l.write32(0xbf510008, self.l.read32(0xbf510008) |  (7 << 20))
+        #self.l.write32(0xbf510018, self.l.read32(0xbf510018) & ~(7 << 20))
+        #self.l.write32(0xbf510018, self.l.read32(0xbf510018) |  (7 << 20))
+        #self.l.write32(0xbf510008, self.l.read32(0xbf510008) & ~(7 << 20))
         self.write32(self.CONTROL, 0x200)
+
+    def can_tx(self):
+        return (self.read32(self.STATUS) & self.STATUS_TXLVL_MASK) < self.STATUS_TXLVL_HIGH
+
+    def can_rx(self):
+        return (self.read32(self.STATUS) & self.STATUS_RXLVL_MASK) != 0
 
     def do_transfer(self, cmd, tx, rxlen):
         assert len(tx) == 0 or rxlen == 0
         assert len(cmd) < 0x20
 
         control = len(cmd) << 16
-        #control |= 0x00202000
         if len(tx):
-            control |= 3
+            control |= self.CONTROL_TX
             self.write32(self.TRXLEN, len(tx))
         else:
-            control |= 5
+            control |= self.CONTROL_RX
             self.write32(self.TRXLEN, rxlen)
         self.write32(self.CONTROL, self.read32(self.CONTROL) & 0x1e00)
         self.write32(self.CONTROL, self.read32(self.CONTROL) | control)
@@ -403,15 +426,15 @@ class SPI(Block):
             self.write32(self.CMDFIFO, x)
 
         if len(tx):
-            self.write32(self.CONTROL, control)
-            print('TODO')
-        elif rxlen:
-            a = []
+            for i in range(0, len(tx), 4):
+                while not self.can_tx(): pass
+                self.write32(self.TRXFIFO, from_be32(tx[i:i+4]))
+        if rxlen:
+            rx = []
             for i in range(0, rxlen, 4):
-                while (self.read32(self.STATUS) & self.STATUS_RXLVL_MASK) == 0:
-                    pass
-                a += to_le32(self.read32(self.TRXFIFO))
-            return a[0:rxlen]
+                while not self.can_rx(): pass
+                rx += to_le32(self.read32(self.TRXFIFO))
+            return rx[0:rxlen]
 
     def flash_read(self, addr, length):
         return self.do_transfer([0x03] + to_be24(addr), [], length)
