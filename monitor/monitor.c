@@ -7,6 +7,7 @@
 #define ARRAY_LENGTH(a) (sizeof(a) / sizeof((a)[0]))
 #define BIT(x) (1ULL << (x))
 #define min(a,b) (((a) < (b))? (a) : (b))
+#define max(a,b) (((a) > (b))? (a) : (b))
 #define KiB (1 << 10)
 #define MiB (1 << 20)
 #define GiB (1 << 30)
@@ -181,6 +182,174 @@ static bool parse_int(const char *s, uint32_t base, uint32_t *result)
 
 	*result = x;
 	return true;
+}
+
+
+/* SPI driver */
+
+#define SPI_BASE	0xbf010000
+#define SPI_TRXFIFO	(SPI_BASE + 0x000)
+#define SPI_TRXLEN	(SPI_BASE + 0x120)
+#define SPI_CONTROL	(SPI_BASE + 0x124)
+#define SPI_CONTROL_TX	3
+#define SPI_CONTROL_RX	5
+#define SPI_CONTROL_CMDLEN_SHIFT 16
+#define SPI_STATUS	(SPI_BASE + 0x140)
+#define SPI_STATUS_BUSY BIT(16)
+#define SPI_STATUS_RXLVL 0x0000003f
+#define SPI_STATUS_TXLVL 0x00003f00
+#define SPI_STATUS_TXLVL_HIGH 0x00003f00
+#define SPI_CMDFIFO	(SPI_BASE + 0x148)
+
+static void spi_init(void)
+{
+	write32(SPI_CONTROL, 0x200);
+}
+
+static bool spi_can_tx(void)
+{
+	return (read32(SPI_STATUS) & SPI_STATUS_TXLVL) < SPI_STATUS_TXLVL_HIGH;
+}
+
+static bool spi_can_rx(void)
+{
+	return (read32(SPI_STATUS) & SPI_STATUS_RXLVL) != 0;
+}
+
+static void spi_transfer(const uint8_t *cmdbuf, size_t cmdlen,
+			 const uint8_t *txbuf, size_t txlen,
+			 uint8_t *rxbuf, size_t rxlen)
+{
+	uint32_t control = cmdlen << SPI_CONTROL_CMDLEN_SHIFT;
+	if (txlen) {
+		control |= SPI_CONTROL_TX;
+		write32(SPI_TRXLEN, txlen);
+	} else {
+		control |= SPI_CONTROL_RX;
+		write32(SPI_TRXLEN, rxlen);
+	}
+	write32(SPI_CONTROL, read32(SPI_CONTROL) & 0x1e00);
+	write32(SPI_CONTROL, read32(SPI_CONTROL) | control);
+
+	for (size_t i = 0; i < cmdlen; i++)
+		write32(SPI_CMDFIFO, cmdbuf[i]);
+
+	while (txlen) {
+		if (spi_can_tx()) {
+			uint32_t word = 0;
+			size_t bytes = min(4, txlen);
+
+			for (size_t i = 0; i < bytes; i++)
+				word |= *txbuf++ << (3-i) * 8;
+
+			write32(SPI_TRXFIFO, word);
+			txlen -= bytes;
+		}
+	}
+
+	while (rxlen) {
+		if (read32(SPI_STATUS) & SPI_STATUS_RXLVL) {
+			uint32_t word = read32(SPI_TRXFIFO);
+			size_t bytes = min(4, rxlen);
+
+			for (size_t i = 0; i < bytes; i++) {
+				*rxbuf++ = word & 0xff;
+				word >>= 8;
+			}
+
+			rxlen -= bytes;
+		}
+	}
+
+	while (read32(SPI_STATUS) & SPI_STATUS_BUSY)
+		;
+}
+
+static void flash_read(uint32_t addr, uint8_t *buf, size_t size)
+{
+	uint8_t cmd[4] = {
+		0x03,
+		addr >> 16,
+		addr >> 8,
+		addr
+	};
+	spi_transfer(cmd, sizeof(cmd), NULL, 0, buf, size);
+}
+
+/* If the flash has any bits cleared that are set in the new data, we
+   need an erase to set these bits again. */
+static bool flash_page_needs_erase(uint32_t addr, const uint8_t *data, size_t size)
+{
+	uint8_t buf[128];
+
+	while (size) {
+		size_t chunk = min(sizeof(buf), size);
+		flash_read(addr, buf, chunk);
+
+		for (size_t i = 0; i < chunk; i++)
+			if (~buf[i] & data[i])
+				return true;
+
+		addr += chunk;
+		data += chunk;
+		size -= chunk;
+	}
+
+	return false;
+}
+
+/* Read status register */
+static uint8_t flash_rsr(void)
+{
+	uint8_t cmd = 0x05, resp;
+
+	spi_transfer(&cmd, sizeof(cmd), NULL, 0, &resp, sizeof(resp));
+	return resp;
+}
+
+/* Poll the Write-in-progress/BUSY bit */
+static void flash_poll_wip(void)
+{
+	while (flash_rsr() & 1)
+		;
+}
+
+/* Write Enable */
+static void flash_wren(void)
+{
+	uint8_t cmd = 0x06;
+
+	spi_transfer(&cmd, sizeof(cmd), NULL, 0, NULL, 0);
+}
+
+/* Sector Erase (4 KiB) */
+static void flash_erase4k(uint32_t addr)
+{
+	uint8_t cmd[] = {
+		0x20,
+		addr >> 16,
+		addr >> 8,
+		addr
+	};
+
+	flash_wren();
+	spi_transfer(cmd, sizeof(cmd), NULL, 0, NULL, 0);
+	flash_poll_wip();
+}
+
+/* Program a page (256 bytes at once) */
+static void flash_program_page(uint32_t addr, const uint8_t *data, size_t size)
+{
+	uint8_t cmd[] = {
+		0x02,
+		addr >> 16,
+		addr >> 8,
+		addr
+	};
+
+	flash_wren();
+	spi_transfer(cmd, sizeof(cmd), data, size, NULL, 0);
+	flash_poll_wip();
 }
 
 
@@ -399,6 +568,8 @@ static void cache_flush_range(unsigned long addr, size_t len)
 
 static void cmd_sync(int argc, char **argv)
 {
+	(void)argc;
+	(void)argv;
 	cache_flush_range(0x80000000, 64 * MiB);
 }
 
@@ -445,6 +616,46 @@ static void cmd_src(int argc, char **argv)
 	source((const char *)script);
 }
 
+static void cmd_flrd(int argc, char **argv)
+{
+	uint32_t source, dest, size;
+
+	if (argc != 4 ||
+	    !parse_int(argv[1], 16, &source) ||
+	    !parse_int(argv[2], 16, &dest) ||
+	    !parse_int(argv[3], 0, &size)) {
+		puts("Usage error");
+		return;
+	}
+
+	flash_read(source, (void *)dest, size);
+}
+
+static void cmd_flwr(int argc, char **argv)
+{
+	uint32_t source, dest, size;
+
+	if (argc != 4 ||
+	    !parse_int(argv[1], 16, &source) ||
+	    !parse_int(argv[2], 16, &dest) ||
+	    !parse_int(argv[3], 0, &size) ||
+	    (dest & 0xfff) || dest >= 64 * MiB) {
+		puts("Usage error");
+		return;
+	}
+
+	/* Erase 4K-sectorwise */
+	for (size_t s = 0; s < size; s += 0x1000) {
+		size_t chunk = min(0x1000, size - s);
+
+		if (flash_page_needs_erase(dest+s, (void *)(source+s), chunk))
+			flash_erase4k(dest+s);
+
+		for (size_t p = 0; p < chunk; p += 256)
+			flash_program_page(dest+s+p, (void *)(source+s+p), chunk-p);
+	}
+}
+
 static void cmd_help(int argc, char **argv);
 static const struct command commands[] = {
 	{ "help", "[command]", "Show help output for one or all commands", cmd_help },
@@ -461,6 +672,8 @@ static const struct command commands[] = {
 	{ "sync", "", "Synchronize caches", cmd_sync },
 	{ "call", "address [up to 3 args]", "Call a function by address", cmd_call },
 	{ "src", "address", "Source/run script at address", cmd_src },
+	{ "flrd", "source destination count", "Read from flash", cmd_flrd },
+	{ "flwr", "source destination count", "Write data to flash; destination must be 4k-aligned", cmd_flwr },
 };
 
 static const struct command *find_command(const char *name)
@@ -669,6 +882,8 @@ static void main_loop(void)
 
 void main(void)
 {
+	spi_init();
+
 	//puts("Press any key to avoid running the default boot script");
 	//if (!wait_for_key(1000000)) {
 	//	source(_bootscript);
