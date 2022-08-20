@@ -23,6 +23,14 @@ all: monitor.bin scream.bin testcard.bin
 %.bin: %.o
 	$(OBJCOPY) -j .text -O binary $< $@
 
+monitor.o: bootscript.h
+
+bootscript.h: bootscript.txt
+	xxd -i < $< > $@
+
+bootscript.txt: bootscript.txt.default
+	cp $+ $@
+
 MONITOR_OBJS = start.o monitor.o
 monitor.elf: $(MONITOR_OBJS) monitor.ld
 	$(LD) $(LDFLAGS) $(MONITOR_OBJS) -o $@

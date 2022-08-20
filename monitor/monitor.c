@@ -53,6 +53,31 @@ static char uart_rx(void)
 }
 
 
+/* Timer driver */
+
+/* This register increments at roughly 3.275 MHz */
+#define TIMER_REG	0xbf44308c
+
+static uint32_t timer_get()
+{
+	return read32(TIMER_REG);
+}
+
+static uint32_t check_timeout(uint32_t start, uint32_t period_ms)
+{
+	return (timer_get() - start) >= 3275 * period_ms;
+}
+
+static void sleep_ticks(uint32_t ticks)
+{
+	uint32_t start = timer_get();
+
+	while ((timer_get() - start) < ticks)
+		for (int i = 0; i < 100000; i++)
+			asm volatile ("nop");
+}
+
+
 /* Console I/O functions */
 
 /* Print one character. LF is converted to CRLF. */
@@ -656,6 +681,23 @@ static void cmd_flwr(int argc, char **argv)
 	}
 }
 
+static const char bootscript[] = {
+	#include "bootscript.h"
+	, '\0'
+};
+
+static void cmd_boot(int argc, char **argv)
+{
+	(void)argv;
+
+	if (argc != 1) {
+		puts("Usage error");
+		return;
+	}
+
+	source(bootscript);
+}
+
 static void cmd_help(int argc, char **argv);
 static const struct command commands[] = {
 	{ "help", "[command]", "Show help output for one or all commands", cmd_help },
@@ -674,6 +716,7 @@ static const struct command commands[] = {
 	{ "src", "address", "Source/run script at address", cmd_src },
 	{ "flrd", "source destination count", "Read from flash", cmd_flrd },
 	{ "flwr", "source destination count", "Write data to flash; destination must be 4k-aligned", cmd_flwr },
+	{ "boot", "", "Continue with the usual boot flow", cmd_boot },
 };
 
 static const struct command *find_command(const char *name)
@@ -870,6 +913,17 @@ static void source(const char *script)
 	}
 }
 
+static bool wait_for_key(uint32_t ms)
+{
+	uint32_t start = timer_get();
+
+	while (!check_timeout(start, ms))
+		if (uart_rx_level() != 0)
+			return true;
+
+	return false;
+}
+
 static void main_loop(void)
 {
 	char line[128];
@@ -884,10 +938,12 @@ void main(void)
 {
 	spi_init();
 
-	//puts("Press any key to avoid running the default boot script");
-	//if (!wait_for_key(1000000)) {
-	//	source(_bootscript);
-	//}
+	puts("Press any key to avoid running the default boot script");
+	if (!wait_for_key(1000)) {
+		puts("would run the bootscript:");
+		puts(bootscript);
+		source(bootscript);
+	}
 
 	puts("Welcome to lolmon");
 	main_loop();
