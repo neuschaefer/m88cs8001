@@ -240,7 +240,7 @@ static void spi_transfer(const uint8_t *cmdbuf, size_t cmdlen,
 			size_t bytes = min(4, txlen);
 
 			for (size_t i = 0; i < bytes; i++)
-				word |= *txbuf++ << (3-i) * 8;
+				word |= *txbuf++ << i * 8;
 
 			write32(SPI_TRXFIFO, word);
 			txlen -= bytes;
