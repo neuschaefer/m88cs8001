@@ -479,6 +479,14 @@ class I2C(Block):
     CONTROL_STOP  = 0x40
     CONTROL_START = 0x80
 
+    def finish(self):
+        while self.read8(self.CONTROL) != self.CONTROL_DONE:
+            print(hex(self.read8(self.CONTROL)))
+
+        status = self.read8(self.STATUS)
+        if status & 0xa0:
+            print(f'I2C status: {status:02x}')
+
     def write(self, value, start):
         control = self.CONTROL_WRITE
         if start:
@@ -486,22 +494,11 @@ class I2C(Block):
 
         self.write8(self.WRITE, value)
         self.write8(self.CONTROL, control)
-        while self.read8(self.CONTROL) != self.CONTROL_DONE:
-            print(hex(self.read8(self.CONTROL)))
-
-        status = self.read8(self.STATUS)
-        if status:
-            pass
-            #print(f'I2C status: {status:02x}')
+        self.finish()
 
     def stop(self):
         self.write8(self.CONTROL, self.CONTROL_STOP)
-        while self.read8(self.CONTROL) != self.CONTROL_DONE:
-            print(hex(self.read8(self.CONTROL)))
-        status = self.read8(self.STATUS)
-        if status:
-            pass
-            #print(f'I2C status: {status:02x}')
+        self.finish()
 
     def read(self, special):
         control = self.CONTROL_READ
@@ -509,14 +506,7 @@ class I2C(Block):
             control |= self.CONTROL_SPECIAL
 
         self.write8(self.CONTROL, control)
-        while self.read8(self.CONTROL) != self.CONTROL_DONE:
-            print(hex(self.read8(self.CONTROL)))
-
-        status = self.read8(self.STATUS)
-        if status:
-            pass
-            #print(f'I2C status: {status:02x}')
-
+        self.finish()
         return self.read8(self.READ)
 
 # FD650B-S frontpanel
