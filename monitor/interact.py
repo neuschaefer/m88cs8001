@@ -162,7 +162,8 @@ class Lolmon:
             error(':> %s' % cmd)
         self.enter_with_echo(cmd, self.chunksize)
         self.s.write(b'\n')
-        assert self.s.read(2) == b'\r\n'
+        #assert self.s.read(2) == b'\r\n'
+        self.s.read(2)
 
     def writeX(self, cmd, size, addr, value):
         #print('poke %s %08x %s' % (cmd, addr, value))
@@ -347,6 +348,9 @@ class Exceptions(Block):
 
 
 class CLK(Block):
+    REG20 = 0x20
+    REG20_SLOW_MUX = BIT(30)
+
     SPI0_MUX = 0x4c
     SPI0_MUX_SLOW = 0
     SPI0_MUX_594M = 2
@@ -358,6 +362,13 @@ class CLK(Block):
 
     def set_spi0_mux(self, value):
         self.write32(self.SPI0_MUX, self.read32(self.SPI0_MUX) & ~7 | value)
+
+    def rate_slow(self):
+        if self.read32(self.REG20) & self.REG20_SLOW_MUX:
+            return 24000000
+        else:
+            return 27000000
+
 
 class SPI(Block):
     TRXFIFO = 0x0
@@ -555,7 +566,28 @@ class Frontpanel:
         self.set_digits([0b1110110, 0b1110111, 0b111001, 0b111001])
 
 
-UART = Block
+class UART(Block):
+    BAUD_DIV = 0x18
+    BAUD_FRAC = 0x1c
+
+    @staticmethod
+    def calc_baud_divisors(baud):
+        c = clk.rate_slow()
+        sample_rate = baud * 16
+        div = c // sample_rate
+        rem = c % sample_rate
+        frac = rem // baud
+        return div, frac, 1 - int((rem * 2) < baud)
+
+    def set_baud_rate(self, baud):
+        div, frac, _ = self.calc_baud_divisors(baud)
+        assert div < 256
+        assert frac < 16
+        self.l.run_command_noreturn(f'ww {self.base + self.BAUD_DIV:08x} {div} {frac}')
+        if self == uart0:
+            self.l.s.baudrate = baud
+            self.l.connection_test()
+
 
 l = Lolmon('/dev/ttyUSB0')
 l.connection_test()
