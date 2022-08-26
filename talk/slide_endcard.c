@@ -70,9 +70,8 @@ static void endcard_logo_present(struct endcard *ec, FB fb, int x, int y)
 	}
 }
 
-// TODO: move somewhere else
 static void draw_cccac(FB fb, int x, int y, int tile) {
-	fb_fill_rect(fb, x, y, 5*tile, 4*tile, COLOR_GREY);
+	fb_fill_rect(fb, x-2, y-2, 5*tile+4, 4*tile+4, COLOR_BLACK_20);
 	for (int i = 0; i < 20; i++) {
 		int col = i / 4;
 		int row = i % 4;
@@ -81,11 +80,12 @@ static void draw_cccac(FB fb, int x, int y, int tile) {
 		fb_fill_rect(fb, x + col*tile + 2, y + row*tile + 2, tile-4, tile-4,
 				bit? COLOR_WHITE:COLOR_BLACK);
 	}
+	font_draw(font_default, fb, x+10, y+3*tile-8, 5, COLOR_WHITE, TRANSPARENT, "CCCAC");
 }
 
 static const char draw_cccac_source[] =
 "static void draw_cccac(FB fb, int x, int y, int tile) {\n"
-"        fb_fill_rect(fb, x, y, 5*tile, 4*tile, COLOR_GREY);\n"
+"        fb_fill_rect(fb, x-2, y-2, 5*tile+4, 4*tile+4, COLOR_BLACK_20);\n"
 "        for (int i = 0; i < 20; i++) {\n"
 "                int col = i / 4;\n"
 "                int row = i % 4;\n"
@@ -94,6 +94,7 @@ static const char draw_cccac_source[] =
 "                fb_fill_rect(fb, x + col*tile + 2, y + row*tile + 2, tile-4, tile-4,\n"
 "                                bit? COLOR_WHITE:COLOR_BLACK);\n"
 "        }\n"
+"        font_draw(font_default, fb, x+10, y+3*tile-8, 5, COLOR_WHITE, TRANSPARENT, \"CCCAC\");\n"
 "}\n";
 
 static void endcard_init(void *ctx) {
@@ -104,11 +105,16 @@ static void endcard_init(void *ctx) {
 
 	font_draw_headline(font_default, fb, COLOR_BLACK, COLOR_GREY, "Ende");
 
-	font_draw_main(font_default, fb, 0, "- thanks for listening");
-	font_draw_main(font_default, fb, 1, "                 -- jn");
-	//draw_cccac(fb, 500, 40, 50);
-	draw_cccac(fb, MAIN_TEXT_X + 20, 200, 50);
-	font_draw_text_window(font_default, fb, 400, 40 + 60 * 4 + 20, "slide_endcard.c", draw_cccac_source);
+	font_draw_main(font_default, fb, 0, "- Danke fürs Zuhören");
+	font_draw_main(font_default, fb, 1, "- Fragen? :)");
+
+	// CCCAC demo
+	//draw_cccac(fb, 606, 20, 60);
+	draw_cccac(fb, MAIN_TEXT_X, 240, 58);
+	font_draw_text_window(font_default, fb, 380, 300, "slide_endcard.c", draw_cccac_source);
+
+	// Font credit
+	font_draw(font_default, fb, 4, 530, 2, COLOR_GREY, TRANSPARENT, "Font: Cozette by Slavfox");
 
 	fb_present(fb);
 

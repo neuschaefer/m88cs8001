@@ -336,6 +336,7 @@ static int color_get_cr(color_t c)          { return (c >>  0) & 0xff; }
 enum {
 	COLOR_WHITE = YCbCr(0xff, 0x80, 0x80),
 	COLOR_BLACK = YCbCr(0x00, 0x80, 0x80),
+	COLOR_BLACK_20 = YCbCr(0x20, 0x80, 0x80),
 	COLOR_GREY = YCbCr(0x80, 0x80, 0x80),
 	COLOR_GREY_F0 = YCbCr(0xf0, 0x80, 0x80),
 	COLOR_GREY_D0 = YCbCr(0xd0, 0x80, 0x80),
@@ -513,6 +514,9 @@ static const struct chardef *font_find_char(const struct font *font, int c)
 	if (c >= font->first_char &&
 	    c - font->first_char < font->num_chars)
 		return &font->chars[c - font->first_char];
+	for (int i = 0; i < font->remap_table_len; i++)
+		if (font->remap_table[i].codepoint == c)
+			return &font->chars[font->remap_table[i].index];
 	return NULL;
 }
 
@@ -557,16 +561,45 @@ static void font_draw_char(const struct font *font, FB fb, int x_start, int y_st
 	}
 }
 
+static int utf8_decode(const char *p, int *len)
+{
+	int dummy;
+
+	if (!len)
+		len = &dummy;
+
+	*len = 1;
+	if ((p[0] & 0x80) == 0x00)
+		/* ASCII and NUL */
+		return p[0];
+	if ((p[0] & 0xe0) == 0xc0) {
+		/* Two bytes */
+		if (p[1] == 0)
+			return 0;
+		*len = 2;
+		return (p[0] & 0x1f) << 6 | (p[1] & 0x3f);
+	}
+	if ((p[0] & 0xf0) == 0xe0) {
+		/* Three bytes */
+		if (p[1] == 0 || p[2] == 0)
+			return 0;
+		*len = 3;
+		return (p[0] & 0x0f) << 12 | (p[1] & 0x3f) << 6 | (p[2] & 0x3f);
+	}
+	return '?';
+}
+
 static void font_draw(const struct font *font, FB fb, int x_start, int y_start, int scale, color_t fg, color_t bg, const char *string)
 {
 	int x = x_start, y = y_start;
+	int len = 0;
 
-	for (const char *p = string; *p; p++) {
+	for (const char *p = string; utf8_decode(p, &len); p += len) {
 		if (*p == '\n') {
 			x = x_start;
 			y += font->font_bbx.h * scale;
 		} else {
-			font_draw_char(font, fb, x, y, scale, fg, bg, *p);
+			font_draw_char(font, fb, x, y, scale, fg, bg, utf8_decode(p, NULL));
 			x += font->norm_space * scale;
 		}
 	}
@@ -575,10 +608,11 @@ static void font_draw(const struct font *font, FB fb, int x_start, int y_start, 
 static void font_measure(const struct font *font, int *width, int *height, int scale, const char *string)
 {
 	int x = 0, y = 0;
+	int len;
 	*height = 0;
 	*width = 0;
 
-	for (const char *p = string; *p; p++) {
+	for (const char *p = string; utf8_decode(p, &len); p += len) {
 		if (*p == '\n') {
 			x = 0;
 			y += font->font_bbx.h * scale;
