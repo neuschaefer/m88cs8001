@@ -439,16 +439,48 @@ class SPI(Block):
         if len(tx):
             for i in range(0, len(tx), 4):
                 while not self.can_tx(): pass
-                self.write32(self.TRXFIFO, from_be32(tx[i:i+4]))
+                self.write32(self.TRXFIFO, from_le32(tx[i:i+4]))
         if rxlen:
             rx = []
             for i in range(0, rxlen, 4):
                 while not self.can_rx(): pass
-                rx += to_le32(self.read32(self.TRXFIFO))
+                rx += to_be32(self.read32(self.TRXFIFO))
             return rx[0:rxlen]
 
     def flash_read(self, addr, length):
         return self.do_transfer([0x03] + to_be24(addr), [], length)
+
+    # Use with care!
+    # - Choose your offset wisely.
+    # - The offset is flash-absolute, NOT relative to the partition table
+    # - File should be in the correct LZMA format
+    def update_demo_partition(self, offset, filename):
+        with open(filename, 'rb') as f:
+            data = f.read()
+
+        PART_MAGIC = b'*^_^*DM(^o^)'
+        BLOCK_SIZE = 0x1000  # 4k erase blocks
+        PART_BASE = 0x10000
+        PART_BUF = 0x80100000
+        CODE_BUF = 0x80200000
+        self.l.run_command(f'flrd {PART_BASE:x} {PART_BUF:x} {BLOCK_SIZE:x}')
+        assert self.l.read8(PART_BUF, 12) == PART_MAGIC
+        assert self.l.read8(PART_BUF + 0x94, 8) == b'demo\0\0\0\0'
+        if self.l.read8(PART_BUF + 0x88, 4) != b'NCRC':
+            print('Changing CRC to NCRC')
+            self.l.write8(PART_BUF + 0x88, b'NCRC')
+        assert offset >= 0x11000
+        assert offset < 4 * MiB - len(data)
+        assert (offset & (BLOCK_SIZE-1)) == 0
+        self.l.write32(PART_BUF + 0x84, len(data))
+        self.l.write32(PART_BUF + 0x80, offset - PART_BASE)
+
+        # Send and write file
+        self.l.write8(CODE_BUF, data)
+        self.l.run_command(f'flwr {CODE_BUF:x} {offset:x} {len(data)}')
+
+        # Commit partition table
+        self.l.run_command(f'flwr {PART_BUF:x} {PART_BASE:x} {BLOCK_SIZE:x}')
 
 
 class GPIO(Block):

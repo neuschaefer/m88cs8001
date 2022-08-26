@@ -9,7 +9,7 @@ CPUFLAGS := -EL -march=24kec
 CFLAGS := -Os -fno-builtin -nostdlib -Wall -Wextra -Wno-unused-function -Wno-main -fno-pic
 LDFLAGS := -T monitor.ld -EL
 
-all: monitor.bin scream.bin testcard.bin
+all: monitor.bin monitor.lzma scream.bin testcard.bin
 
 %.o: %.S
 	$(CC) -c $(CPUFLAGS) $< -o $@
@@ -22,6 +22,9 @@ all: monitor.bin scream.bin testcard.bin
 
 %.bin: %.o
 	$(OBJCOPY) -j .text -O binary $< $@
+
+%.lzma: %.bin
+	../tools/lzma-compress.py $< $@
 
 monitor.o: bootscript.h
 

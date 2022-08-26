@@ -265,7 +265,7 @@ static void spi_transfer(const uint8_t *cmdbuf, size_t cmdlen,
 			size_t bytes = min(4, txlen);
 
 			for (size_t i = 0; i < bytes; i++)
-				word |= *txbuf++ << i * 8;
+				word |= *txbuf++ << (3-i) * 8;
 
 			write32(SPI_TRXFIFO, word);
 			txlen -= bytes;
@@ -277,10 +277,8 @@ static void spi_transfer(const uint8_t *cmdbuf, size_t cmdlen,
 			uint32_t word = read32(SPI_TRXFIFO);
 			size_t bytes = min(4, rxlen);
 
-			for (size_t i = 0; i < bytes; i++) {
-				*rxbuf++ = word & 0xff;
-				word >>= 8;
-			}
+			for (size_t i = 0; i < bytes; i++)
+				*rxbuf++ = word >> (3-i) * 8;
 
 			rxlen -= bytes;
 		}
@@ -940,8 +938,6 @@ void main(void)
 
 	puts("Press any key to avoid running the default boot script");
 	if (!wait_for_key(1000)) {
-		puts("would run the bootscript:");
-		puts(bootscript);
 		source(bootscript);
 	}
 
