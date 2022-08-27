@@ -112,6 +112,30 @@ const char part_file[] =
 "ssdata.bin:   data\n"
 "ucaskey.bin:  data";
 
+static const char demo_asm[] =
+"ram:80008000    00600840        mfc0        t0,Status\n"
+"ram:80008004    8410087c        ins         t0,zero,0x2,0x1\n"
+"ram:80008008    01000924        li          t1,0x1\n"
+"ram:8000800c    4408287d        ins         t0,t1,0x1,0x1\n"
+"ram:80008010    04c6287d        ins         t0,t1,0x18,0x1\n"
+"ram:80008014    00608840        mtc0        t0,Status,0x0\n"
+"ram:80008018    c0000000        ehb\n"
+"ram:8000801c    31000924        li          t1,0x31\n"
+"ram:80008020    54bf0d3c        lui         t5,0xbf54\n"
+"ram:80008024    0001ad35        ori         t5,t5,0x100\n"
+"ram:80008028    0000a9a5        sh          t1,0x0(t5)\n"
+"ram:8000802c    00000000        nop\n"
+"ram:80008030    00000000        nop\n"
+"ram:80008034    25080000        or          at,zero,zero\n"
+"ram:80008038    25100000        or          v0,zero,zero\n"
+"ram:8000803c    25180000        or          v1,zero,zero\n"
+"ram:80008040    25200000        or          a0,zero,zero\n"
+"ram:80008044    25280000        or          a1,zero,zero\n"
+"ram:80008048    25300000        or          a2,zero,zero\n"
+"ram:8000804c    25380000        or          a3,zero,zero\n"
+"ram:80008050    25400000        or          t0,zero,zero\n";
+
+
 
 static void part_init(void *ctx, int num)
 {
@@ -144,6 +168,16 @@ static void part_init(void *ctx, int num)
 				"file *", part_file);
 	}
 
+	if (num >= 4) {
+		struct scaled_image *img = scale_down(fb_bootsplash, 3);
+		font_draw_window(font_default, fb, 550, 30, img->width, img->height,
+				COLOR_BLACK, TRANSPARENT, COLOR_BLACK, COLOR_GREY_D0, "logo");
+		scaled_image_present(img, fb, 550, 30);
+	}
+
+	if (num >= 5)
+		font_draw_text_window(font_default, fb, 550, 260, "demo", demo_asm);
+
 	fb_present(fb);
 }
 
@@ -151,8 +185,12 @@ static void part0_init(void *ctx) { part_init(ctx, 0); }
 static void part1_init(void *ctx) { part_init(ctx, 1); }
 static void part2_init(void *ctx) { part_init(ctx, 2); }
 static void part3_init(void *ctx) { part_init(ctx, 3); }
+static void part4_init(void *ctx) { part_init(ctx, 4); }
+static void part5_init(void *ctx) { part_init(ctx, 5); }
 
 static const struct slide slide_part0 = { .init = part0_init, };
 static const struct slide slide_part1 = { .init = part1_init, };
 static const struct slide slide_part2 = { .init = part2_init, };
 static const struct slide slide_part3 = { .init = part3_init, };
+static const struct slide slide_part4 = { .init = part4_init, };
+static const struct slide slide_part5 = { .init = part5_init, };

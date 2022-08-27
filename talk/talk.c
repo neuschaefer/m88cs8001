@@ -745,9 +745,8 @@ static void font_draw_window(const struct font *font, FB fb, int x, int y, int w
 			     color_t frame_fg, color_t window_bg, color_t title_fg, color_t title_bg,
 			     const char *title)
 {
-	x -= 2; width += 4;
-	y -= font->font_bbx.h;
-	height += 4;
+	x -= 1; width += 1;
+	y -= 1; height += 1;
 
 	// Background
 	for (int j = - font->font_bbx.h; j <= height; j++)
@@ -792,7 +791,7 @@ static void font_draw_text_window(const struct font *font, FB fb, int x, int y, 
 	width = max(width, twidth + 15);
 	(void)theight;
 
-	font_draw_window(font, fb, x, y, width, height,
+	font_draw_window(font, fb, x-1, y-font->font_bbx.h, width+3, height+4,
 			 COLOR_BLACK, COLOR_GREY_F0, COLOR_BLACK, COLOR_GREY_D0, title);
 
 	font_draw(font, fb, x, y, 1, COLOR_BLACK, TRANSPARENT, text);
@@ -814,15 +813,35 @@ struct slide {
 
 
 #include "slide_title.c"
+#include "slide_sat.c"
 #include "slide_parttable.c"
+#include "slide_codeexec.c"
+#include "slide_fbhex.c"
+#include "slide_corruption.c"
+#include "slide_testcard.c"
+#include "slide_conclusion.c"
 #include "slide_endcard.c"
 
 static const struct slide *const slides[] = {
 	&slide_title,
+	&slide_sat,
 	&slide_part0,
 	&slide_part1,
 	&slide_part2,
 	&slide_part3,
+	&slide_part4,
+	&slide_part5,
+	&slide_codeexec0,
+	&slide_codeexec1,
+	&slide_codeexec2,
+	&slide_fbhex0,
+	&slide_fbhex1a,
+	&slide_fbhex1b,
+	&slide_corruption0,
+	&slide_corruption1,
+	&slide_lumafound,
+	&slide_testcard,
+	&slide_conclusion,
 	&slide_endcard,
 };
 
