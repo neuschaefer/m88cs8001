@@ -504,6 +504,84 @@ static void fb_fill_rect(FB fb, int x, int y, int width, int height, color_t col
 }
 
 
+/* Image scaling */
+
+struct scaled_image {
+	int scale;
+	uint8_t *luma, *chroma;
+	int luma_height, luma_width;
+	int chroma_height, chroma_width;
+	int height, width;
+};
+
+static struct scaled_image *scale_down(FB fb, int scale)
+{
+	struct scaled_image *img = arena_zalloc(sizeof(*img));
+	img->scale = scale;
+	img->luma_height = LUMA_HEIGHT / img->scale;
+	img->luma_width = LUMA_WIDTH / img->scale;
+	img->chroma_height = CHROMA_HEIGHT / img->scale;
+	img->chroma_width = CHROMA_WIDTH / img->scale;
+	img->height = FB_HEIGHT / img->scale;
+	img->width = FB_WIDTH / img->scale;
+	img->luma = arena_alloc(img->luma_width * img->luma_height);
+	img->chroma = arena_alloc(img->chroma_width * img->chroma_height * 2);
+
+	for (int Y = 0; Y < img->luma_height; Y++)
+	for (int X = 0; X < img->luma_width; X++) {
+		uint32_t sum = 0;
+		for (int yo = 0; yo < img->scale; yo++)
+		for (int xo = 0; xo < img->scale; xo++) {
+			int x = X * img->scale + xo;
+			int y = Y * img->scale + yo;
+			sum += luma_get(fb.luma, x, y);
+		}
+		img->luma[X + img->luma_width * Y] = sum / (img->scale * img->scale);
+	}
+
+	for (int Y = 0; Y < img->chroma_height; Y++)
+	for (int X = 0; X < img->chroma_width; X++) {
+		uint32_t sum0 = 0;
+		uint32_t sum1 = 0;
+		for (int yo = 0; yo < img->scale; yo++)
+		for (int xo = 0; xo < img->scale; xo++) {
+			int x = X * img->scale + xo;
+			int y = Y * img->scale + yo;
+			color_t color = chroma_get(fb.chroma, x, y);
+			sum0 += color_get_cr(color);
+			sum1 += color_get_cb(color);
+		}
+		img->chroma[(X + img->chroma_width * Y) * 2    ] = sum0 / (img->scale * img->scale);
+		img->chroma[(X + img->chroma_width * Y) * 2 + 1] = sum1 / (img->scale * img->scale);
+	}
+
+	return img;
+}
+
+static void scaled_image_present(struct scaled_image *img, FB fb, int x, int y)
+{
+	uint8_t *luma   = fb.luma;
+	uint8_t *chroma = fb.chroma;
+
+	if (x > FB_WIDTH || y > FB_HEIGHT)
+		return;
+
+	for (int Y = 0; Y < img->luma_height && Y+2*y < LUMA_HEIGHT; Y++)
+	for (int X = 0; X < img->luma_width  && X+2*x < LUMA_WIDTH; X++) {
+		if (X+2*x >= 0)
+			luma[X+2*x + LUMA_WIDTH * (Y+2*y)] = img->luma[X + img->luma_width * Y];
+	}
+
+	for (int Y = 0; Y < img->chroma_height && Y+y < CHROMA_HEIGHT; Y++)
+	for (int X = 0; X < img->chroma_width  && X+x < CHROMA_WIDTH; X++) {
+		if (X+x >= 0) {
+			chroma[(X+x + CHROMA_WIDTH * (Y+y)) * 2]     = img->chroma[(X + img->chroma_width * Y) * 2    ];
+			chroma[(X+x + CHROMA_WIDTH * (Y+y)) * 2 + 1] = img->chroma[(X + img->chroma_width * Y) * 2 + 1];
+		}
+	}
+}
+
+
 /* Font rendering */
 
 extern const struct font font_cozette;

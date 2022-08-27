@@ -1,74 +1,12 @@
 // SPDX-License-Identifier: MIT
 
-#define ENDCARD_SCALE 15
-#define ENDCARD_LUMA_HEIGHT (LUMA_HEIGHT / ENDCARD_SCALE)
-#define ENDCARD_LUMA_WIDTH (LUMA_WIDTH / ENDCARD_SCALE)
-#define ENDCARD_CHROMA_HEIGHT (CHROMA_HEIGHT / ENDCARD_SCALE)
-#define ENDCARD_CHROMA_WIDTH (CHROMA_WIDTH / ENDCARD_SCALE)
-#define ENDCARD_HEIGHT (FB_HEIGHT / ENDCARD_SCALE)
-#define ENDCARD_WIDTH (FB_WIDTH / ENDCARD_SCALE)
 
 struct endcard {
 	// Scaled version of the boot splash, for use between names
-	uint8_t logo_luma[ENDCARD_LUMA_HEIGHT * ENDCARD_LUMA_WIDTH];
-	uint8_t logo_chroma[ENDCARD_CHROMA_WIDTH * ENDCARD_CHROMA_HEIGHT * 2];
+	struct scaled_image *logo;
 	size_t name_index;
 	int px;
 };
-
-static void scale_down(struct endcard *ec, FB fb)
-{
-	for (int Y = 0; Y < ENDCARD_LUMA_HEIGHT; Y++)
-	for (int X = 0; X < ENDCARD_LUMA_WIDTH; X++) {
-		uint32_t sum = 0;
-		for (int yo = 0; yo < ENDCARD_SCALE; yo++)
-		for (int xo = 0; xo < ENDCARD_SCALE; xo++) {
-			int x = X * ENDCARD_SCALE + xo;
-			int y = Y * ENDCARD_SCALE + yo;
-			sum += luma_get(fb.luma, x, y);
-		}
-		ec->logo_luma[X + ENDCARD_LUMA_WIDTH * Y] = sum / (ENDCARD_SCALE * ENDCARD_SCALE);
-	}
-
-	for (int Y = 0; Y < ENDCARD_CHROMA_HEIGHT; Y++)
-	for (int X = 0; X < ENDCARD_CHROMA_WIDTH; X++) {
-		uint32_t sum0 = 0;
-		uint32_t sum1 = 0;
-		for (int yo = 0; yo < ENDCARD_SCALE; yo++)
-		for (int xo = 0; xo < ENDCARD_SCALE; xo++) {
-			int x = X * ENDCARD_SCALE + xo;
-			int y = Y * ENDCARD_SCALE + yo;
-			color_t color = chroma_get(fb.chroma, x, y);
-			sum0 += color_get_cr(color);
-			sum1 += color_get_cb(color);
-		}
-		ec->logo_chroma[(X + ENDCARD_CHROMA_WIDTH * Y) * 2    ] = sum0 / (ENDCARD_SCALE * ENDCARD_SCALE);
-		ec->logo_chroma[(X + ENDCARD_CHROMA_WIDTH * Y) * 2 + 1] = sum1 / (ENDCARD_SCALE * ENDCARD_SCALE);
-	}
-}
-
-static void endcard_logo_present(struct endcard *ec, FB fb, int x, int y)
-{
-	uint8_t *luma   = fb.luma;
-	uint8_t *chroma = fb.chroma;
-
-	if (x > FB_WIDTH || y > FB_HEIGHT)
-		return;
-
-	for (int Y = 0; Y < ENDCARD_LUMA_HEIGHT && Y+2*y < LUMA_HEIGHT; Y++)
-	for (int X = 0; X < ENDCARD_LUMA_WIDTH  && X+2*x < LUMA_WIDTH; X++) {
-		if (X+2*x >= 0)
-			luma[X+2*x + LUMA_WIDTH * (Y+2*y)] = ec->logo_luma[X + ENDCARD_LUMA_WIDTH * Y];
-	}
-
-	for (int Y = 0; Y < ENDCARD_CHROMA_HEIGHT && Y+y < CHROMA_HEIGHT; Y++)
-	for (int X = 0; X < ENDCARD_CHROMA_WIDTH  && X+x < CHROMA_WIDTH; X++) {
-		if (X+x >= 0) {
-			chroma[(X+x + CHROMA_WIDTH * (Y+y)) * 2]     = ec->logo_chroma[(X + ENDCARD_CHROMA_WIDTH * Y) * 2    ];
-			chroma[(X+x + CHROMA_WIDTH * (Y+y)) * 2 + 1] = ec->logo_chroma[(X + ENDCARD_CHROMA_WIDTH * Y) * 2 + 1];
-		}
-	}
-}
 
 static void draw_cccac(FB fb, int x, int y, int tile) {
 	fb_fill_rect(fb, x-2, y-2, 5*tile+4, 4*tile+4, COLOR_BLACK_20);
@@ -118,7 +56,7 @@ static void endcard_init(void *ctx) {
 
 	fb_present(fb);
 
-	scale_down(ec, fb_bootsplash);
+	ec->logo = scale_down(fb_bootsplash, 15);
 	ec->px = FB_WIDTH;  // scroll in from the right margin
 	ec->px += 30 * 60;  // ... after a minute (60s at 30fps)
 }
@@ -168,9 +106,9 @@ static void endcard_render_shoutouts(struct endcard *ec, FB fb)
 			x += width;
 
 			if (i != 0 && i < ARRAY_LENGTH(shoutouts) - 1) {
-				endcard_logo_present(ec, fb, x, y - 26);
-				x += ENDCARD_WIDTH;
-				width += ENDCARD_WIDTH;
+				scaled_image_present(ec->logo, fb, x, y - 26);
+				x += ec->logo->width;
+				width += ec->logo->width;
 			}
 
 			if (pass == 1 && i == ec->name_index && x <= 0) {
