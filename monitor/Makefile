@@ -8,8 +8,9 @@ OBJCOPY := $(CROSS_COMPILE)objcopy
 CPUFLAGS := -EL -march=24kec
 CFLAGS := -Os -fno-builtin -nostdlib -Wall -Wextra -Wno-unused-function -Wno-main -fno-pic -mno-dsp
 LDFLAGS := -T monitor.ld -EL
+LDFLAGS_BOOT1 := -T boot1.ld -EL
 
-all: monitor.bin monitor.lzma scream.bin testcard.bin
+all: monitor.bin monitor.lzma scream.bin testcard.bin boot1.bin
 
 %.o: %.S
 	$(CC) -c $(CPUFLAGS) $< -o $@
@@ -37,6 +38,10 @@ bootscript.txt: bootscript.txt.default
 MONITOR_OBJS = start.o monitor.o
 monitor.elf: $(MONITOR_OBJS) monitor.ld
 	$(LD) $(LDFLAGS) $(MONITOR_OBJS) -o $@
+
+BOOT1_OBJS = boot1.o monitor.o
+boot1.elf: $(BOOT1_OBJS) boot1.ld
+	$(LD) $(LDFLAGS_BOOT1) $(BOOT1_OBJS) -o $@
 
 .PHONY: clean
 
