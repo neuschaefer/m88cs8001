@@ -7,16 +7,18 @@ TABLE_BASE = 0x10000
 NCRC = Int32ul.parse(b'NCRC')
 
 Entry = Struct(
-    'flags' / Hex(Int32ul),
-    'unk_4' / Hex(Int32ul),
-    'unk_8' / Hex(Int32ul),
+    'unk_0' / Hex(Int32ul),
+    'id' / Hex(Int8ul),
+    'unk_5' / Hex(Int8ul),
+    'unk_6' / Hex(Int16ul),
     'offset' / Hex(Int32ul),  # offset from start of part. table
     'size' / Hex(Int32ul),
     'crc' / Hex(Int32ul),
     'serial' / Bytes(8),
     'name' / Bytes(8),
+    'unk_24' / Hex(Int32ul),
     'unk_28' / Hex(Int32ul),
-    'unk_2c' / Hex(Int32ul),
+    'flags' / Hex(Int32ul),
 )
 
 class Image:
@@ -27,7 +29,7 @@ class Image:
         self.data = self.f.read(0x400)
 
     def get(self):
-        offset = 0x14
+        offset = 0x18
         while offset + 0x30 <= len(self.data):
             entry = Entry.parse(self.data[offset:offset+0x30])
             if entry.name == b'\0\0\0\0\0\0\0\0':
@@ -37,13 +39,13 @@ class Image:
 
     def list(self, long=False):
         if not long:
-            print('nr. flags    offset   size     crc32    name')
+            print('nr. flags    offset   size     crc32    id name')
         for i, e in enumerate(self.get()):
             if long:
                 print(f'Partition {i}:  {e}')
             else:
                 name = e.name.decode('ascii').strip('\0')
-                print(f'{i:2}  {e.flags:08x} {e.offset:8x} {e.size:8x} {e.crc:08x} {name}')
+                print(f'{i:2}  {e.flags:08x} {e.offset:8x} {e.size:8x} {e.crc:08x} {e.id:02x} {name}')
             if e.crc != NCRC:
                 self.f.seek(TABLE_BASE + e.offset)
                 d = self.f.read(e.size)
