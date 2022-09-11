@@ -37,7 +37,7 @@ const char *const shoutouts[] = {
 	"all hackers all over the world"
 };
 
-static void endcard_draw(void *ctx)
+static void endcard_update(void *ctx)
 {
 	(void)ctx;
 
@@ -48,6 +48,6 @@ static void endcard_draw(void *ctx)
 
 static const struct slide slide_endcard = {
 	.init = endcard_init,
-	.draw = endcard_draw,
+	.update = endcard_update,
 	.ctx_size = sizeof(struct endcard)
 };

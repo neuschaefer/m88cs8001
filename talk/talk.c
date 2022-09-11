@@ -585,7 +585,7 @@ static void font_draw_headline(const struct font *font, FB fb, color_t fg, color
 
 struct slide {
 	void (*init)(void *);
-	void (*draw)(void *);
+	void (*update)(void *);
 	void (*exit)(void *);
 	size_t ctx_size;
 };
@@ -684,8 +684,8 @@ static void main_loop(void)
 				slide->init(slide_ctx);
 		}
 
-		if (slide->draw)
-			slide->draw(slide_ctx);
+		if (slide->update)
+			slide->update(slide_ctx);
 
 		while (waiting_for_next_frame())
 			check_inputs();
