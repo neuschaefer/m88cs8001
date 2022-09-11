@@ -482,6 +482,26 @@ class SPI(Block):
         # Commit partition table
         self.l.run_command(f'flwr {PART_BUF:x} {PART_BASE:x} {BLOCK_SIZE:x}')
 
+    def flash_write_and_verify(self, fladdr, data):
+        WRITE_BUF = 0x80100000
+        READ_BUF  = 0x80200000
+
+        step = 0x100
+        for i in range(0, len(data), step):
+            print(f'0x{i:06x}...')
+            chunk = data[i:i+step]
+            self.l.write8(WRITE_BUF, chunk)
+            self.l.run_command(f'flwr {WRITE_BUF:x} {fladdr+i:x} {len(chunk)}')
+            self.l.run_command(f'flrd {fladdr+i:x} {READ_BUF:x} {len(chunk)}')
+            readback = self.l.read8(READ_BUF, len(chunk))
+            if readback != chunk:
+                for i in range(len(chunk)):
+                    r = readback[i]
+                    c = chunk[i]
+                    if r != c:
+                        print(f'Difference at offset 0x{i:x}: {r:02x} != {c:02x}, {r&(c^0xff):02x}/{(r^0xff)&c:02x}')
+                break
+
 
 class GPIO(Block):
     OUT = [0x00, 0x10]

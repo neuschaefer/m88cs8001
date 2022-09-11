@@ -662,10 +662,13 @@ static void cmd_flwr(int argc, char **argv)
 	    !parse_int(argv[1], 16, &source) ||
 	    !parse_int(argv[2], 16, &dest) ||
 	    !parse_int(argv[3], 0, &size) ||
-	    (dest & 0xfff) || dest >= 64 * MiB) {
+	    dest >= 64 * MiB) {
 		puts("Usage error");
 		return;
 	}
+
+	if (dest & 0xfff)
+		puts("Warning: destination is not page aligned");
 
 	/* Erase 4K-sectorwise */
 	for (size_t s = 0; s < size; s += 0x1000) {
@@ -675,7 +678,7 @@ static void cmd_flwr(int argc, char **argv)
 			flash_erase4k(dest+s);
 
 		for (size_t p = 0; p < chunk; p += 256)
-			flash_program_page(dest+s+p, (void *)(source+s+p), chunk-p);
+			flash_program_page(dest+s+p, (void *)(source+s+p), min(256, chunk-p));
 	}
 }
 
