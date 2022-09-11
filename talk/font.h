@@ -11,11 +11,15 @@ struct chardef {
 	} bbx;
 };
 
+struct bbx {
+	int8_t w, h, xoff, yoff;
+};
+
 struct font {
-	uint8_t *bitmaps;
-	struct chardef *chars;
-	struct {
-		int8_t w, h, xoff, yoff;
-	} bbx_bias;
+	const uint8_t *bitmaps;
+	const struct chardef *chars;
+	struct bbx bbx_bias;
 	uint16_t first_char, num_chars;
+	struct bbx font_bbx;
+	int8_t norm_space;
 };

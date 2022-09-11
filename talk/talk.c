@@ -266,6 +266,7 @@ enum {
 	COLOR_WHITE = YCbCr(0xff, 0x80, 0x80),
 	COLOR_BLACK = YCbCr(0x00, 0x80, 0x80),
 	COLOR_GREY = YCbCr(0x80, 0x80, 0x80),
+	COLOR_RED = YCbCr(0x20, 0x80, 0xff),
 };
 
 
@@ -296,8 +297,8 @@ static void luma_set(uint8_t *luma, int x, int y, color_t color)
 
 static void chroma_set(uint8_t *chroma, int x, int y, color_t color)
 {
-	chroma[x + CHROMA_WIDTH * y * 2]     = color_get_cr(color);
-	chroma[x + CHROMA_WIDTH * y * 2 + 1] = color_get_cb(color);
+	chroma[(x + CHROMA_WIDTH * y) * 2]     = color_get_cr(color);
+	chroma[(x + CHROMA_WIDTH * y) * 2 + 1] = color_get_cb(color);
 }
 
 static void luma_fill(uint8_t *luma, color_t color)
@@ -350,6 +351,8 @@ static void fb_init(void) {
 		luma_buffers[i] = arena_alloc(LUMA_SIZE);
 		chroma_buffers[i] = arena_alloc(CHROMA_SIZE);
 	};
+
+	arena_make_permanent();
 }
 
 static void *luma_get_free(void)
@@ -410,50 +413,78 @@ static void fb_draw_px_scaled(FB fb, int x, int y, int scale, color_t color)
 
 /* Font rendering */
 
-extern struct font font_cozette;
-#define font_default (&font_cozette)
+extern const struct font font_cozette;
+const struct font *font_default = &font_cozette;
 
-static void font_draw_char(struct font *font, FB fb, int x, int y, int scale, color_t fg, color_t bg, int c)
+static const struct chardef *font_find_char(const struct font *font, int c)
 {
-	// TODO: draw background
-	// TODO: draw bitmap
-
-	(void)font;
-	(void)fb;
-	(void)x;
-	(void)y;
-	(void)scale;
-	(void)fg;
-	(void)bg;
-	(void)c;
+	if (c >= font->first_char &&
+	    c - font->first_char < font->num_chars)
+		return &font->chars[c - font->first_char];
+	return NULL;
 }
 
-static void font_draw(struct font *font, FB fb, int x, int y, int scale, color_t fg, color_t bg, char *string)
+static struct bbx chardef_get_bbx(const struct font *font, const struct chardef *cdef)
 {
-	// TODO:
-	// for each char:
-	//  - if normal:
-	//    draw, x += width
-	//  - if '\n':
-	//    reset x, y += height
+	struct bbx bbx = {
+		.w = cdef->bbx.w + font->bbx_bias.w,
+		.h = cdef->bbx.h + font->bbx_bias.h,
+		.xoff = cdef->bbx.xoff + font->bbx_bias.xoff,
+		.yoff = cdef->bbx.yoff + font->bbx_bias.yoff,
+	};
+	return bbx;
+}
 
-	(void)font;
-	(void)fb;
-	(void)x;
-	(void)y;
-	(void)scale;
-	(void)fg;
+static void font_draw_char(const struct font *font, FB fb, int x_start, int y_start, int scale, color_t fg, color_t bg, int c)
+{
+	const struct chardef *cdef = font_find_char(font, c);
+
+	if (!cdef)
+		cdef = font_find_char(font, '?');
+
+	if (!cdef)
+		return;
+
+	struct bbx bbx = chardef_get_bbx(font, cdef);
+
+	for (int i = 0; i < cdef->bm_len; i++) {
+		uint8_t bm = font->bitmaps[cdef->bm_off + i];
+
+		for (int b = 0; b < 8; b++) {
+			int x = x_start + (b + bbx.xoff) * scale;
+			int y = y_start + (i - bbx.yoff - bbx.h) * scale;
+
+			if (bm & BIT(7 - b))
+				fb_draw_px_scaled(fb, x, y, scale, fg);
+		}
+	}
+
+	// TODO: draw background
 	(void)bg;
-	(void)string;
+}
+
+static void font_draw(const struct font *font, FB fb, int x_start, int y_start, int scale, color_t fg, color_t bg, const char *string)
+{
+	int x = x_start, y = y_start;
+
+	for (const char *p = string; *p; p++) {
+		if (*p == '\n') {
+			x = x_start;
+			y += font->font_bbx.h * scale;
+		} else {
+			font_draw_char(font, fb, x, y, scale, fg, bg, *p);
+			x += font->norm_space * scale;
+		}
+	}
 }
 
 #define TITLE_X 30
 #define TITLE_Y 100
 #define TITLE_SCALE 10
-#define TITLE_Y_SHADOW_OFFSET 15
-#define TITLE_X_SHADOW_OFFSET 15
+#define TITLE_Y_SHADOW_OFFSET 5
+#define TITLE_X_SHADOW_OFFSET 5
 
-static void font_draw_title(struct font *font, FB fb, color_t fg, color_t shadow, char *string)
+static void font_draw_title(const struct font *font, FB fb, color_t fg, color_t shadow, char *string)
 {
 	font_draw(font, fb, TITLE_X + TITLE_X_SHADOW_OFFSET, TITLE_Y + TITLE_Y_SHADOW_OFFSET,
 			TITLE_SCALE, shadow, TRANSPARENT, string);

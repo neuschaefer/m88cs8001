@@ -14,6 +14,9 @@ class Char:
 class BDF:
     def __init__(self, filename):
         self.chars = []
+        self.font_bbx = [0,0,0,0]
+        self.norm_space = 7
+
         f = open(filename, 'r')
         char = None
         in_bitmap = False
@@ -31,6 +34,10 @@ class BDF:
                 char.encoding = int(line.split(' ')[1])
             elif line.startswith('BBX '):
                 char.bbx = [int(x) for x in line.split(' ')[1:]]
+            elif line.startswith('FONTBOUNDINGBOX '):
+                self.font_bbx = [int(x) for x in line.split(' ')[1:]]
+            elif line.startswith('NORM_SPACE '):
+                self.norm_space = int(line.split(' ')[1])
             elif line == 'BITMAP':
                 in_bitmap = True
         self.by_encoding = { c.encoding: c for c in self.chars }
@@ -50,7 +57,7 @@ class BDF:
         bbx_biases = [min([c.bbx[i] for c in self.chars]) for i in range(4)]
 
         # List of bitmap bytes
-        print(f'static uint8_t {name}_bitmaps[] = {{')
+        print(f'static const uint8_t {name}_bitmaps[] = {{')
         index = 0
         for c in chars:
             print(f'    /* {c.encoding:#04x} \'{chr(c.encoding)}\' @{index:5} */ ' + ''.join(['%#04x,' % x for x in c.bitmap]))
@@ -59,25 +66,27 @@ class BDF:
         print('};')
 
         # List for each character:
-        print(f'static struct chardef {name}_chars[] = {{')
+        print(f'static const struct chardef {name}_chars[] = {{')
         for i, c in enumerate(chars):
             # u16: bounding box, four bits per part, biased by lowest value
             # u16: bitmap index
             bbx = [c.bbx[i] - bbx_biases[i] for i in range(4)]
             for b in bbx:
                 assert 0 <= b <= 15
-            print(f'    {{ {bitmap_indices[i]:4}, {len(c.bitmap):2}, {{ {bbx[0]}, {bbx[1]}, {bbx[2]}, {bbx[3]} }} }},')
+            print(f'    /* \'{chr(c.encoding)}\' */ {{ {bitmap_indices[i]:4}, {len(c.bitmap):2}, {{ {bbx[0]}, {bbx[1]}, {bbx[2]}, {bbx[3]} }} }},')
         print('};')
 
         # Font control block:
         #   - pointers to the other things
         #   - Biases: BBX, char index
         #   - highest index
-        print(f'struct font {name} = {{')
-        print(f'    {name}_bitmaps,')
-        print(f'    {name}_chars,')
-        print(f'    {{ {bbx_biases[0]}, {bbx_biases[1]}, {bbx_biases[2]}, {bbx_biases[3]} }},')
-        print(f'    {chars[0].encoding:#x}, {len(chars):#x}')
+        print(f'const struct font {name} = {{')
+        print(f'    .bitmaps = {name}_bitmaps,')
+        print(f'    .chars = {name}_chars,')
+        print(f'    .bbx_bias = {{ {bbx_biases[0]}, {bbx_biases[1]}, {bbx_biases[2]}, {bbx_biases[3]} }},')
+        print(f'    .first_char = {chars[0].encoding:#x}, .num_chars = {len(chars):#x},')
+        print(f'    .font_bbx = {{ {self.font_bbx[0]}, {self.font_bbx[1]}, {self.font_bbx[2]}, {self.font_bbx[3]} }},')
+        print(f'    .norm_space = {self.norm_space},')
         print('};')
 
 
