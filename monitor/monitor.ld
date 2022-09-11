@@ -11,10 +11,4 @@ SECTIONS {
 		*(.rodata*);
 		*(.data.rel.ro*);
 	}
-
-	. = 0x1800;
-	.bootscript : {
-                _bootscript = .;
-		*(.bootscript);
-	}
 }
