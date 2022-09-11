@@ -337,6 +337,8 @@ enum {
 	COLOR_WHITE = YCbCr(0xff, 0x80, 0x80),
 	COLOR_BLACK = YCbCr(0x00, 0x80, 0x80),
 	COLOR_GREY = YCbCr(0x80, 0x80, 0x80),
+	COLOR_GREY_F0 = YCbCr(0xf0, 0x80, 0x80),
+	COLOR_GREY_D0 = YCbCr(0xd0, 0x80, 0x80),
 	COLOR_RED = YCbCr(0x20, 0x80, 0xff),
 };
 
@@ -549,6 +551,25 @@ static void font_draw(const struct font *font, FB fb, int x_start, int y_start, 
 	}
 }
 
+static void font_measure(const struct font *font, int *width, int *height, int scale, const char *string)
+{
+	int x = 0, y = 0;
+	*height = 0;
+	*width = 0;
+
+	for (const char *p = string; *p; p++) {
+		if (*p == '\n') {
+			x = 0;
+			y += font->font_bbx.h * scale;
+		} else {
+			x += font->norm_space * scale;
+			*height = max(y + font->font_bbx.h * scale, *height);
+			*width = max(x, *width);
+		}
+	}
+}
+
+
 #define TITLE_X 30
 #define TITLE_Y 100
 #define TITLE_SCALE 10
@@ -575,6 +596,66 @@ static void font_draw_headline(const struct font *font, FB fb, color_t fg, color
 	font_draw(font, fb, HEADLINE_X, HEADLINE_Y, HEADLINE_SCALE, fg, TRANSPARENT, string);
 }
 
+#define MAIN_TEXT_X 40
+#define MAIN_TEXT_Y 140
+
+
+static void font_draw_window(const struct font *font, FB fb, int x, int y, int width, int height,
+			     color_t frame_fg, color_t window_bg, color_t title_fg, color_t title_bg,
+			     const char *title)
+{
+	x -= 2; width += 4;
+	y -= font->font_bbx.h;
+	height += 4;
+
+	// Background
+	for (int j = - font->font_bbx.h; j <= height; j++)
+	for (int i = 0; i < width; i++) {
+		if (j < 0)
+			fb_draw_px(fb, x + i, y + j, title_bg);
+		else
+			fb_draw_px(fb, x + i, y + j, window_bg);
+	}
+
+	// Horizontal frame
+	for (int i = 0; i < width; i++) {
+		fb_draw_px(fb, x + i, y - font->font_bbx.h, frame_fg);
+		fb_draw_px(fb, x + i, y,                    frame_fg);
+		fb_draw_px(fb, x + i, y + height,           frame_fg);
+	}
+
+	// Vertical frame
+	for (int i = - font->font_bbx.h; i <= height; i++) {
+		fb_draw_px(fb, x,         y + i, frame_fg);
+		fb_draw_px(fb, x + width, y + i, frame_fg);
+	}
+
+	// Title
+	font_draw(font, fb, x + 2, y - 2, 1, title_fg, TRANSPARENT, title);
+
+	// X
+	for (int i = 2; i <= font->font_bbx.h - 2; i++) {
+		fb_draw_px(fb, x + width - 1 - i, y - font->font_bbx.h + i, frame_fg);
+		fb_draw_px(fb, x + width - 1 - i, y - i,                    frame_fg);
+	}
+}
+
+static void font_draw_text_window(const struct font *font, FB fb, int x, int y, const char *title, const char *text)
+{
+	int width = 0, height = 0;
+	font_measure(font, &width, &height, 1, text);
+
+	int twidth = 0, theight = 0;
+	font_measure(font, &twidth, &theight, 1, title);
+
+	width = max(width, twidth + 15);
+	(void)theight;
+
+	font_draw_window(font, fb, x, y, width, height,
+			 COLOR_BLACK, COLOR_GREY_F0, COLOR_BLACK, COLOR_GREY_D0, title);
+
+	font_draw(font, fb, x, y, 1, COLOR_BLACK, TRANSPARENT, text);
+}
 
 /* Other drawing routines */
 //   - rahmen etc., für einfache grafik reichts ja
@@ -592,10 +673,15 @@ struct slide {
 
 
 #include "slide_title.c"
+#include "slide_parttable.c"
 #include "slide_endcard.c"
 
 static const struct slide *const slides[] = {
 	&slide_title,
+	&slide_part0,
+	&slide_part1,
+	&slide_part2,
+	&slide_part3,
 	&slide_endcard,
 };
 
