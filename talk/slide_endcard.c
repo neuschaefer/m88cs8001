@@ -5,8 +5,16 @@ struct endcard {
 
 static void endcard_init(void *ctx) {
 	(void)ctx;
+	for (int i = 0; i < 2; i++) {
+		FB fb = fb_get_free();
+		fb_fill(fb, COLOR_WHITE);
+
+		font_draw_headline(font_default, fb, COLOR_BLACK, COLOR_GREY, "Ende");
+		fb_present(fb);
+	}
 }
 
+//       - gruetzkopf 🦈 Ghidra team 🦈 kimiko festival ...
 const char *const shoutouts[] = {
 	"Alyssa Rosenzweig",
 	"Atomic Shrimp",
@@ -32,7 +40,10 @@ const char *const shoutouts[] = {
 static void endcard_draw(void *ctx)
 {
 	(void)ctx;
-//       - gruetzkopf 🦈 Ghidra team 🦈 kimiko festival ...
+
+	FB fb = fb_get_free();
+
+	fb_present(fb);
 }
 
 static const struct slide slide_endcard = {

@@ -74,37 +74,6 @@ static char uart_rx(void)
 }
 
 
-/* Timer driver */
-
-/* This register increments at roughly 3.275 MHz */
-#define TIMER_REG	0xbf44308c
-
-static uint32_t timer_get()
-{
-	return read32(TIMER_REG);
-}
-
-static uint32_t check_timeout(uint32_t start, uint32_t period_ms)
-{
-	return (timer_get() - start) >= 3275 * period_ms;
-}
-
-static void sleep_ticks(uint32_t ticks)
-{
-	uint32_t start = timer_get();
-
-	while ((timer_get() - start) < ticks)
-		for (int i = 0; i < 100000; i++)
-			asm volatile ("nop");
-}
-
-
-/* I2C/frontpanel driver */
-
-// TODO: port from interact.py
-// - vor/zurück mit den Tasten
-
-
 /* Console I/O functions */
 
 /* Print one character. LF is converted to CRLF. */
@@ -158,6 +127,118 @@ static void put_hex32(uint32_t x)
 static int getchar(void)
 {
 	return uart_rx();
+}
+
+
+/* Timer driver */
+
+/* This register increments at roughly 3.275 MHz */
+#define TIMER_REG	0xbf44308c
+#define TIMER_FREQ	3275000
+
+static uint32_t timer_get()
+{
+	return read32(TIMER_REG);
+}
+
+static uint32_t check_timeout(uint32_t start, uint32_t period_ms)
+{
+	return (timer_get() - start) >= 3275 * period_ms;
+}
+
+static void sleep_ticks(uint32_t ticks)
+{
+	uint32_t start = timer_get();
+
+	while ((timer_get() - start) < ticks)
+		for (int i = 0; i < 100000; i++)
+			asm volatile ("nop");
+}
+
+
+/* I2C/frontpanel driver */
+
+#define I2C_BASE	0xbf158000  /* I2C 2, but we only need that one */
+#define I2C_STATUS	(I2C_BASE + 0x04)
+#define I2C_WRITE	(I2C_BASE + 0x08)
+#define I2C_READ	(I2C_BASE + 0x0c)
+#define I2C_CONTROL	(I2C_BASE + 0x14)
+#define I2C_CONTROL_DONE	0x04
+#define I2C_CONTROL_SPECIAL	0x04
+#define I2C_CONTROL_READ	0x10
+#define I2C_CONTROL_WRITE	0x20
+#define I2C_CONTROL_STOP	0x40
+#define I2C_CONTROL_START	0x80
+
+static void i2c_finish(void)
+{
+	while (read8(I2C_CONTROL) != I2C_CONTROL_DONE)
+		;
+
+	uint8_t status = read8(I2C_STATUS);
+	if (status & 0xa0) {
+		putstr("I2C error: ");
+		put_hex8(status);
+		putchar('\n');
+	}
+}
+
+static void i2c_write(uint8_t value, bool start)
+{
+	uint8_t control = I2C_CONTROL_WRITE;
+
+	if (start)
+		control |= I2C_CONTROL_START;
+
+	write8(I2C_WRITE, value);
+	write8(I2C_CONTROL, control);
+	i2c_finish();
+}
+
+static void i2c_stop(void)
+{
+	write8(I2C_CONTROL, I2C_CONTROL_STOP);
+	i2c_finish();
+}
+
+static uint8_t i2c_read(bool special)
+{
+	uint8_t control = I2C_CONTROL_READ;
+	if (special)
+		control |= I2C_CONTROL_SPECIAL;
+
+	write8(I2C_CONTROL, control);
+	i2c_finish();
+
+	return read8(I2C_READ);
+}
+
+static void fp_write(uint8_t addr, uint8_t value)
+{
+	i2c_write((addr | 0x20) << 1, true);
+	i2c_write(value, false);
+	i2c_stop();
+}
+
+static void fp_enable(void)
+{
+	fp_write(4, 0x41);
+}
+
+static void fp_set_digit(int num, uint8_t value)
+{
+	fp_write(0x14 + num, value);
+}
+
+static uint8_t fp_get_key(void)
+{
+	uint8_t value;
+
+	i2c_write((7 | 0x20) << 1 | 1, true);
+	value = i2c_read(true);
+	i2c_stop();
+
+	return value;
 }
 
 
@@ -215,16 +296,6 @@ static void arena_init(void) {
 	arena_start = MEM_C(1*MiB);
 	arena_next = arena_start;
 	arena_limit = MEM_C(60*MiB);
-// - memory management:
-//   - leave area around original framebuffers untouched
-//   - arena allocator
-//   - luma/chroma buffers A/B
-//     - luma_get_free()
-//     - luma_present(luma)
-//     - typedef struct framebuffer { void *luma; void *chroma; } FB;
-//     - FB fb_get_free();
-//     - fb_present(FB fb);
-	//...
 }
 
 static void *arena_alloc(size_t size) {
@@ -345,8 +416,8 @@ void *chroma_buffers[2];
 static void fb_init(void) {
 	// TODO: Identify bootsplash, make backups, etc.
 	fb_bootsplash = fb_get_active();
-	// set up pool of frame buffers
 
+	// set up pool of frame buffers
 	for (size_t i = 0; i < ARRAY_LENGTH(luma_buffers); i++) {
 		luma_buffers[i] = arena_alloc(LUMA_SIZE);
 		chroma_buffers[i] = arena_alloc(CHROMA_SIZE);
@@ -491,6 +562,19 @@ static void font_draw_title(const struct font *font, FB fb, color_t fg, color_t 
 	font_draw(font, fb, TITLE_X, TITLE_Y, TITLE_SCALE, fg, TRANSPARENT, string);
 }
 
+#define HEADLINE_X 20
+#define HEADLINE_Y 80
+#define HEADLINE_SCALE 6
+#define HEADLINE_Y_SHADOW_OFFSET 3
+#define HEADLINE_X_SHADOW_OFFSET 3
+
+static void font_draw_headline(const struct font *font, FB fb, color_t fg, color_t shadow, char *string)
+{
+	font_draw(font, fb, HEADLINE_X + HEADLINE_X_SHADOW_OFFSET, HEADLINE_Y + HEADLINE_Y_SHADOW_OFFSET,
+			HEADLINE_SCALE, shadow, TRANSPARENT, string);
+	font_draw(font, fb, HEADLINE_X, HEADLINE_Y, HEADLINE_SCALE, fg, TRANSPARENT, string);
+}
+
 
 /* Other drawing routines */
 //   - rahmen etc., für einfache grafik reichts ja
@@ -498,33 +582,6 @@ static void font_draw_title(const struct font *font, FB fb, color_t fg, color_t 
 //   - draw_hexdump
 //   - draw_ghidra
 
-
-// - per UART: vor, zurück, zu bestimmter seite, neuladen (X-Modem?), quit
-// - Inhalt
-//   - Was ist das für ein Gerät (anderes Exemplar rumgehen lassen)
-//   - Zusammenfassung des ersten Blogposts
-//     - partition table
-//     - partition table listing
-//     - code exec  (scream.S listing)
-//   - lolmon
-//   - wie ich nach dem Hai im RAM gesucht habe
-//     - 0x1000 byte scandump
-//   - 1920-byte-offset gefunden
-//     - Hexdump anzeigen (einfach berechnen)
-//   - Chromabuffer gefunden und verschoben
-//   - Lumabuffer gefunden
-//   - Testbild
-//   - Framebuffer-Adressregister gefunden (Ghidra-Ausschnitt)
-//     - Mock-Ghidra nachbauen
-//   - Buttons
-//   - Conclusion
-//     - Es gibt Welten zu entdecken!
-//     - 28€ hat diese Welt gekostet
-//   - irgendwelche lustigen CGI-Tricks
-//   - endcard
-//     - danke fürs zuhören
-//     - font copyright
-//
 
 struct slide {
 	void (*init)(void *);
@@ -542,30 +599,73 @@ static const struct slide *const slides[] = {
 	&slide_endcard,
 };
 
-static int current_slide = -1, next_slide;
+static int current_slide, next_slide;
 static bool quit_requested;
 static void *slide_ctx;
+static uint8_t previous_fp_key = 0;
+
+static void change_slide(int target)
+{
+	if (target >= 0 &&
+	    target < (int)ARRAY_LENGTH(slides))
+		next_slide = target;
+}
 
 static void check_inputs(void)
 {
 	while (uart_rx_level() != 0) {
 		int c = uart_rx();
 
-		if (c == 'q')
+		switch (c) {
+		case 'q':
 			quit_requested = true;
+			break;
+		case 'j':
+			change_slide(current_slide + 1);
+			break;
+		case 'k':
+			change_slide(current_slide - 1);
+			break;
+		}
 	}
 
-	// TODO: button inputs
+	uint8_t fp_key = fp_get_key();
+	if (fp_key != previous_fp_key) {
+		//putstr("FP key: "); put_hex8(fp_key); putchar('\n');
+		if (fp_key & 0x40) {
+			switch (fp_key & 0x3f) {
+			case 0x1f: /* left */
+				change_slide(current_slide - 1);
+				break;
+			case 0x07: /* right */
+				change_slide(current_slide + 1);
+				break;
+			case 0x17: /* power */
+				break;
+			}
+		}
+
+		previous_fp_key = fp_key;
+	}
 }
+
+uint32_t last_frame;
 
 static bool waiting_for_next_frame(void)
 {
+	uint32_t now = timer_get();
+
+	if ((now - last_frame) < TIMER_FREQ / 30)
+		return true;
+
+	last_frame = now;
 	return false;
-	// TODO
 }
 
 static void main_loop(void)
 {
+	current_slide = -1;
+
 	while (!quit_requested) {
 		const struct slide *slide = (current_slide >= 0)? slides[current_slide] : NULL;
 
@@ -576,6 +676,7 @@ static void main_loop(void)
 			arena_clear();
 
 			// Initialize the next slide
+			putstr("Slide "); put_hex8(next_slide); putchar('\n');
 			current_slide = next_slide;
 			slide = slides[current_slide];
 			slide_ctx = slide->ctx_size? arena_zalloc(slide->ctx_size) : NULL;
@@ -586,10 +687,8 @@ static void main_loop(void)
 		if (slide->draw)
 			slide->draw(slide_ctx);
 
-		check_inputs();
-
 		while (waiting_for_next_frame())
-			;
+			check_inputs();
 	}
 
 	fb_present(fb_bootsplash);
@@ -610,6 +709,11 @@ int main(void)
 	bss_init();
 	arena_init();
 	fb_init();
+
+	fp_set_digit(0, 0b1110110);
+	fp_set_digit(1, 0b1110111);
+	fp_set_digit(2, 0b0111001);
+	fp_set_digit(3, 0b0111001);
 
 	main_loop();
 }
