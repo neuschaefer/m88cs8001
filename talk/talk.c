@@ -368,10 +368,22 @@ static void luma_set(uint8_t *luma, int x, int y, color_t color)
 	luma[x + LUMA_WIDTH * y] = color_get_y(color);
 }
 
+static uint8_t luma_get(uint8_t *luma, int x, int y)
+{
+	return luma[x + LUMA_WIDTH * y];
+}
+
 static void chroma_set(uint8_t *chroma, int x, int y, color_t color)
 {
 	chroma[(x + CHROMA_WIDTH * y) * 2]     = color_get_cr(color);
 	chroma[(x + CHROMA_WIDTH * y) * 2 + 1] = color_get_cb(color);
+}
+
+static color_t chroma_get(uint8_t *chroma, int x, int y)
+{
+	uint8_t cr = chroma[(x + CHROMA_WIDTH * y) * 2];
+	uint8_t cb = chroma[(x + CHROMA_WIDTH * y) * 2 + 1];
+	return YCbCr(0, cb, cr);
 }
 
 static void luma_fill(uint8_t *luma, color_t color)
@@ -466,7 +478,7 @@ static void fb_fill(FB fb, color_t color)
 
 static void fb_draw_px(FB fb, int x, int y, color_t color)
 {
-	if (color_is_transparent(color) || x >= FB_WIDTH || y >= FB_HEIGHT)
+	if (color_is_transparent(color) || x < 0 || x >= FB_WIDTH || y < 0 || y >= FB_HEIGHT)
 		return;
 
 	luma_set(fb.luma, x * 2,     y * 2,     color);
@@ -481,6 +493,13 @@ static void fb_draw_px_scaled(FB fb, int x, int y, int scale, color_t color)
 	for (int i = 0; i < scale; i++)
 		for (int j = 0; j < scale; j++)
 			fb_draw_px(fb, x + j, y + i, color);
+}
+
+static void fb_fill_rect(FB fb, int x, int y, int width, int height, color_t color)
+{
+	for (int j = 0; j < height; j++)
+		for (int i = 0; i < width; i++)
+			fb_draw_px(fb, x + i, y + j, color);
 }
 
 
@@ -520,6 +539,11 @@ static void font_draw_char(const struct font *font, FB fb, int x_start, int y_st
 
 	struct bbx bbx = chardef_get_bbx(font, cdef);
 
+	// Bogos…
+	if (bg != TRANSPARENT)
+		fb_fill_rect(fb, x_start, y_start - font->font_bbx.h,
+				font->norm_space * scale, font->font_bbx.h * scale * 2, bg);
+
 	for (int i = 0; i < cdef->bm_len; i++) {
 		uint8_t bm = font->bitmaps[cdef->bm_off + i];
 
@@ -531,9 +555,6 @@ static void font_draw_char(const struct font *font, FB fb, int x_start, int y_st
 				fb_draw_px_scaled(fb, x, y, scale, fg);
 		}
 	}
-
-	// TODO: draw background
-	(void)bg;
 }
 
 static void font_draw(const struct font *font, FB fb, int x_start, int y_start, int scale, color_t fg, color_t bg, const char *string)
@@ -589,7 +610,7 @@ static void font_draw_title(const struct font *font, FB fb, color_t fg, color_t 
 #define HEADLINE_Y_SHADOW_OFFSET 3
 #define HEADLINE_X_SHADOW_OFFSET 3
 
-static void font_draw_headline(const struct font *font, FB fb, color_t fg, color_t shadow, char *string)
+static void font_draw_headline(const struct font *font, FB fb, color_t fg, color_t shadow, const char *string)
 {
 	font_draw(font, fb, HEADLINE_X + HEADLINE_X_SHADOW_OFFSET, HEADLINE_Y + HEADLINE_Y_SHADOW_OFFSET,
 			HEADLINE_SCALE, shadow, TRANSPARENT, string);
@@ -598,6 +619,14 @@ static void font_draw_headline(const struct font *font, FB fb, color_t fg, color
 
 #define MAIN_TEXT_X 40
 #define MAIN_TEXT_Y 140
+
+static void font_draw_main(const struct font *font, FB fb, int i, const char *string)
+{
+	int width, height;
+	font_measure(font_default, &width, &height, 3, "test");
+
+	font_draw(font, fb, MAIN_TEXT_X, MAIN_TEXT_Y + height * i + 6, 3, COLOR_BLACK, TRANSPARENT, string);
+}
 
 
 static void font_draw_window(const struct font *font, FB fb, int x, int y, int width, int height,
@@ -711,6 +740,12 @@ static void check_inputs(void)
 			break;
 		case 'k':
 			change_slide(current_slide - 1);
+			break;
+		case 'g':
+			change_slide(0);
+			break;
+		case 'G':
+			change_slide(ARRAY_LENGTH(slides) - 1);
 			break;
 		}
 	}

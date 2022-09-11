@@ -99,7 +99,7 @@ const char part_file[] =
 "ir1.bin:      data\n"
 "ir2.bin:      data\n"
 "iwtable.bin:  data\n"
-"iwview.bin:   ISO-8859 text, with very long lines (65536), withno line terminators\n"
+"iwview.bin:   ISO-8859 text, with very long lines (65536), with no line terminators\n"
 "logo.bin:     JPEG image data, JFIF standard 1.02, aspect ratio, density 100x100, segment length 16, progressive, precision 8, 1920x1080, components 3\n"
 "misc.bin:     data\n"
 "music_lo.bin: GIF image data, version 89a, 200 x 100\n"
