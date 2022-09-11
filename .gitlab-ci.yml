@@ -3,6 +3,6 @@ image: debian:11
 build:
   before_script:
     - apt-get update
-    - apt-get install -y build-essential gcc-mips-linux-gnu
+    - apt-get install -y build-essential gcc-mips-linux-gnu xxd
   script:
     - make
