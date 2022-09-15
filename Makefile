@@ -1,4 +1,9 @@
+all: monitor talk
+
 monitor:
 	+$(MAKE) -C monitor
 
-.PHONY: monitor
+talk:
+	+$(MAKE) -C talk
+
+.PHONY: monitor talk
