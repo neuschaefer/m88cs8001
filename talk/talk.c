@@ -962,9 +962,9 @@ int main(void)
 	arena_init();
 	fb_init();
 
-	fp_set_digit(0, 0b1110110);
-	fp_set_digit(1, 0b1110111);
-	fp_set_digit(2, 0b0111001);
+	fp_set_digit(0, 0b0111111);
+	fp_set_digit(1, 0b1101101);
+	fp_set_digit(2, 0b1110001);
 	fp_set_digit(3, 0b0111001);
 
 	main_loop();

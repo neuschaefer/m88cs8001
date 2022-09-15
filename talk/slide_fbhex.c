@@ -64,13 +64,13 @@ static void fbhex0_init(void *ctx)
 
 	// Text
 	font_draw_headline(font_default, fb, COLOR_BLACK, COLOR_GREY, "RAM");
-	font_draw_main(font_default, fb, 0, "- Wo ist mein");
-	font_draw_main(font_default, fb, 1, "  Framebuffer?");
+	font_draw_main(font_default, fb, 0, "- Where is my");
+	font_draw_main(font_default, fb, 1, "  framebuffer?");
 
 	// Little shark
 	struct scaled_image *img = scale_down(fb_bootsplash, 4);
 	font_draw_window(font_default, fb, MAIN_TEXT_X + 40, MAIN_TEXT_Y + 80, img->width, img->height,
-			COLOR_BLACK, TRANSPARENT, COLOR_BLACK, COLOR_GREY_D0, "Was ich suche");
+			COLOR_BLACK, TRANSPARENT, COLOR_BLACK, COLOR_GREY_D0, "What I'm looking for");
 	scaled_image_present(img, fb, MAIN_TEXT_X + 40, MAIN_TEXT_Y + 80);
 
 	// Memory scan
@@ -121,13 +121,13 @@ static void fbhex1_init(void *ctx, int num)
 
 	// Text
 	font_draw_headline(font_default, fb, COLOR_BLACK, COLOR_GREY, "RAM");
-	font_draw_main(font_default, fb, 0, "- Wo ist mein");
-	font_draw_main(font_default, fb, 1, "  Framebuffer?");
+	font_draw_main(font_default, fb, 0, "- Where is my");
+	font_draw_main(font_default, fb, 1, "  framebuffer?");
 
 	// Little shark
 	struct scaled_image *img = scale_down(fb_bootsplash, 4);
 	font_draw_window(font_default, fb, MAIN_TEXT_X + 40, MAIN_TEXT_Y + 80, img->width, img->height,
-			COLOR_BLACK, TRANSPARENT, COLOR_BLACK, COLOR_GREY_D0, "Was ich suche");
+			COLOR_BLACK, TRANSPARENT, COLOR_BLACK, COLOR_GREY_D0, "What I'm looking for");
 	scaled_image_present(img, fb, MAIN_TEXT_X + 40, MAIN_TEXT_Y + 80);
 
 	// Memory scan
@@ -135,7 +135,7 @@ static void fbhex1_init(void *ctx, int num)
 	font_draw_text_window(font_default, fb, 400, 320, "python3", offset_calculations);
 
 	if (num >= 1)
-		font_draw_main(font_default, fb, 8, "- 1920 Byte Abstand -> eine Pixelzeile!");
+		font_draw_main(font_default, fb, 8, "- 1920 bytes distance -> one raster line!");
 
 	fb_present(fb);
 }

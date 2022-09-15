@@ -41,10 +41,10 @@ static void endcard_init(void *ctx) {
 	FB fb = fb_get_free();
 	fb_fill(fb, COLOR_WHITE);
 
-	font_draw_headline(font_default, fb, COLOR_BLACK, COLOR_GREY, "Ende");
+	font_draw_headline(font_default, fb, COLOR_BLACK, COLOR_GREY, "The End");
 
-	font_draw_main(font_default, fb, 0, "- Danke fürs Zuhören");
-	font_draw_main(font_default, fb, 1, "- Fragen? :)");
+	font_draw_main(font_default, fb, 0, "- Thank you for listening!");
+	font_draw_main(font_default, fb, 1, "- Questions? :)");
 
 	// CCCAC demo
 	//draw_cccac(fb, 606, 20, 60);
@@ -71,6 +71,7 @@ const char *const shoutouts[] = {
 	"marcan",
 	"CyReVolt",
 	"foone",
+	"0xide",
 	"HAINBACH",
 	"Slavfox",
 	"Kimiko Festival",
@@ -83,6 +84,7 @@ const char *const shoutouts[] = {
 	"zerforschung",
 	"gruetzkopf",
 	"Rich Felker",
+	"OSFC",
 	"all hackers all over the world"
 };
 

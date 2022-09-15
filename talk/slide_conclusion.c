@@ -5,9 +5,9 @@ static void conclusion_init(void *ctx)
 	FB fb = fb_get_free();
 	fb_fill(fb, COLOR_WHITE);
 
-	font_draw_headline(font_default, fb, COLOR_BLACK, COLOR_GREY, "Fazit");
-	font_draw_main(font_default, fb, 0, "- Es gibt Welten zu entdecken!");
-	font_draw_main(font_default, fb, 1, "- diese Welt hat 28€ gekostet");
+	font_draw_headline(font_default, fb, COLOR_BLACK, COLOR_GREY, "Conclusion");
+	font_draw_main(font_default, fb, 0, "- There are worlds to discover");
+	font_draw_main(font_default, fb, 1, "- This world cost 28€");
 
 	fb_present(fb);
 }

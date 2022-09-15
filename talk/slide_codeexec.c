@@ -70,11 +70,11 @@ static void codeexec_init(void *ctx, int num)
 	FB fb = fb_get_free();
 	fb_fill(fb, COLOR_WHITE);
 
-	font_draw_headline(font_default, fb, COLOR_BLACK, COLOR_GREY, "code execution");
-	font_draw_main(font_default, fb, 0, "- Eigenen Code in den Flash schreiben");
-	font_draw_main(font_default, fb, 1, "  (LZMA-komprimiert)");
+	font_draw_headline(font_default, fb, COLOR_BLACK, COLOR_GREY, "Code execution");
+	font_draw_main(font_default, fb, 0, "- Write my own code into flash");
+	font_draw_main(font_default, fb, 1, "  (LZMA compressed)");
 	if (num >= 2) {
-		font_draw_main(font_default, fb, 2, "- \"Monitor\" für");
+		font_draw_main(font_default, fb, 2, "- \"Monitor\" for");
 		font_draw_main(font_default, fb, 3, "  peek/poke/etc.");
 	}
 
