@@ -63,6 +63,14 @@ static uint32_t timer_get()
 	return read32(TIMER_REG);
 }
 
+static bool timer_active()
+{
+	for (int i = 0; i < 100; i++)
+		if (timer_get() != 0)
+			return true;
+	return false;
+}
+
 static uint32_t check_timeout(uint32_t start, uint32_t period_ms)
 {
 	return (timer_get() - start) >= 3275 * period_ms;
@@ -939,9 +947,10 @@ void main(void)
 {
 	spi_init();
 
-	puts("Press any key to avoid running the default boot script");
-	if (!wait_for_key(1000)) {
-		source(bootscript);
+	if (timer_active()) {
+		puts("Press any key to avoid running the default boot script");
+		if (!wait_for_key(1000))
+			source(bootscript);
 	}
 
 	puts("Welcome to lolmon");
