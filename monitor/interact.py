@@ -444,7 +444,7 @@ class SPI(Block):
             rx = []
             for i in range(0, rxlen, 4):
                 while not self.can_rx(): pass
-                rx += to_be32(self.read32(self.TRXFIFO))
+                rx += to_le32(self.read32(self.TRXFIFO))
             return rx[0:rxlen]
 
     def flash_read(self, addr, length):
