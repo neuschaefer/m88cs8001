@@ -450,6 +450,9 @@ class SPI(Block):
     def flash_read(self, addr, length):
         return self.do_transfer([0x03] + to_be24(addr), [], length)
 
+    def flash_wren(self):
+        self.do_transfer([0x06], [], 0)
+
     # Use with care!
     # - Choose your offset wisely.
     # - The offset is flash-absolute, NOT relative to the partition table
@@ -501,6 +504,158 @@ class SPI(Block):
                     if r != c:
                         print(f'Difference at offset 0x{i:x}: {r:02x} != {c:02x}, {r&(c^0xff):02x}/{(r^0xff)&c:02x}')
                 break
+
+
+class Serprog:
+    """
+    This class implements the serprog protocol, for use with flashrom.
+    """
+
+    # Command definitions from flashrom's serprog.h
+    S_ACK                 = 0x06
+    S_NAK                 = 0x15
+    S_CMD_NOP             = 0x00    # No operation
+    S_CMD_Q_IFACE         = 0x01    # Query interface version
+    S_CMD_Q_CMDMAP        = 0x02    # Query supported commands bitmap
+    S_CMD_Q_PGMNAME       = 0x03    # Query programmer name
+    S_CMD_Q_SERBUF        = 0x04    # Query Serial Buffer Size
+    S_CMD_Q_BUSTYPE       = 0x05    # Query supported bustypes
+    S_CMD_Q_CHIPSIZE      = 0x06    # Query supported chipsize (2^n format)
+    S_CMD_Q_OPBUF         = 0x07    # Query operation buffer size
+    S_CMD_Q_WRNMAXLEN     = 0x08    # Query Write to opbuf: Write-N maximum length
+    S_CMD_R_BYTE          = 0x09    # Read a single byte
+    S_CMD_R_NBYTES        = 0x0A    # Read n bytes
+    S_CMD_O_INIT          = 0x0B    # Initialize operation buffer
+    S_CMD_O_WRITEB        = 0x0C    # Write opbuf: Write byte with address
+    S_CMD_O_WRITEN        = 0x0D    # Write to opbuf: Write-N
+    S_CMD_O_DELAY         = 0x0E    # Write opbuf: udelay
+    S_CMD_O_EXEC          = 0x0F    # Execute operation buffer
+    S_CMD_SYNCNOP         = 0x10    # Special no-operation that returns NAK+ACK
+    S_CMD_Q_RDNMAXLEN     = 0x11    # Query read-n maximum length
+    S_CMD_S_BUSTYPE       = 0x12    # Set used bustype(s).
+    S_CMD_O_SPIOP         = 0x13    # Perform SPI operation.
+    S_CMD_S_SPI_FREQ      = 0x14    # Set SPI clock frequency
+    S_CMD_S_PIN_STATE     = 0x15    # Enable/disable output drivers
+
+    CMDMAP_VALUE = \
+              BIT(S_CMD_NOP)       | \
+              BIT(S_CMD_Q_IFACE)   | \
+              BIT(S_CMD_Q_CMDMAP)  | \
+              BIT(S_CMD_Q_PGMNAME) | \
+              BIT(S_CMD_Q_SERBUF)  | \
+              BIT(S_CMD_Q_BUSTYPE) | \
+              BIT(S_CMD_SYNCNOP)   | \
+              BIT(S_CMD_O_SPIOP)   | \
+              BIT(S_CMD_S_BUSTYPE) | \
+              BIT(S_CMD_S_PIN_STATE)
+
+    BUS_SPI = BIT(3)
+
+    PROGNAME = 'Python serprog'
+
+    def __init__(self, spi):
+        self.spi = spi
+
+    def listen(self, ip='127.0.0.1', port=1234):
+        """
+        Listen one connection from flashrom.
+        """
+        ls = socket.create_server((ip, port))
+        print(f'Please run:\n')
+        print(f'    flashrom -p serprog:ip={ip}:{port}\n')
+        s, addrinfo = ls.accept()
+        print(f'Connection from {addrinfo[0]}:{addrinfo[1]}.')
+
+        def put(b):
+            assert type(b) == list or type(b) == bytes
+            print('-> ' + ' '.join([f'{x:02x}' for x in bytes(b)]))
+            s.send(bytes(b))
+
+        def ack(): put([self.S_ACK])
+        def nak(): put([self.S_NAK])
+
+        def put_u(value, n):
+            put([value >> 8*i & 0xff for i in range(n)])
+
+        def put_u16(value): put_u(value, 2)
+        def put_u32(value): put_u(value, 4)
+
+        def get(n=1):
+            data = s.recv(n)
+            print(f'<- ' + ' '.join([f'{x:02x}' for x in bytes(data)]))
+            return data
+
+        def get_u(n):
+            data = get(n)
+            x = 0
+            for i, b in enumerate(data):
+                x |= b << 8*i
+            return x
+
+        def get_u24():
+            return get_u(3)
+
+        while True:
+            cmd = s.recv(1)
+            if cmd == b'': break
+            print(f'<- {cmd.hex()}')
+
+            cmd = cmd[0]
+            resp = []
+            if cmd == self.S_CMD_NOP:
+                ack()
+            elif cmd == self.S_CMD_SYNCNOP:
+                put([self.S_NAK, self.S_ACK])
+            elif cmd == self.S_CMD_Q_IFACE:
+                # return interface version 1
+                ack()
+                put_u16(1)
+            elif cmd == self.S_CMD_Q_CMDMAP:
+                ack()
+                put_u(self.CMDMAP_VALUE, 32)
+            elif cmd == self.S_CMD_Q_BUSTYPE:
+                ack()
+                put([self.BUS_SPI])
+            elif cmd == self.S_CMD_Q_PGMNAME:
+                assert len(self.PROGNAME) <= 16
+                ack()
+                put(self.PROGNAME.encode('ASCII').ljust(16, b'\0'))
+            elif cmd == self.S_CMD_S_BUSTYPE:
+                [t] = get()
+                if t == self.BUS_SPI:
+                    ack()
+                else:
+                    nak()
+            elif cmd == self.S_CMD_Q_SERBUF:
+                # pretend we have all the RAM
+                ack()
+                put_u16(0xffff)
+            elif cmd == self.S_CMD_S_PIN_STATE:
+                [on] = get()
+                if on:
+                    print("Pins on")
+                else:
+                    print("Pins off")
+                ack()
+            elif cmd == self.S_CMD_O_SPIOP:
+                slen = get_u24()
+                rlen = get_u24()
+                print(f'SPI OP, send {slen}, receive {rlen}')
+                sbuf = get(slen)
+                ack()
+                if slen <= 16:
+                    rbuf = self.spi.do_transfer(sbuf, [], rlen) or b''
+                    assert len(rbuf) == rlen
+                elif rlen == 0:
+                    self.spi.do_transfer(sbuf[:1], sbuf[1:], rlen)
+                else:
+                    assert False
+                put(rbuf)
+            else:
+                print(f'Unsupported command {cmd:02x}')
+                break
+
+            s.send(bytes(resp))
 
 
 class GPIO(Block):
@@ -658,6 +813,7 @@ i2c3 = I2C(l, 0xbf15c000)
 i2c4 = I2C(l, 0xbf580000)
 gpio = GPIOWrap([gpio0, gpio1])
 fp = Frontpanel(i2c2)
+serprog = Serprog(spi0)
 
 
 spi0.init()
