@@ -1,4 +1,8 @@
-monitor:
-	+$(MAKE) -C monitor
+DIRS=monitor serprog
 
-.PHONY: monitor
+all: $(DIRS)
+
+$(DIRS):
+	+$(MAKE) -C $@
+
+.PHONY: $(DIRS)

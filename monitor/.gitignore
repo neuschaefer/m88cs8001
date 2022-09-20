@@ -1,6 +1,2 @@
-*.bin
-*.lzma
-*.o
-*.elf
 bootscript.h
 bootscript.txt
