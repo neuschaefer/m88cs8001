@@ -8,3 +8,11 @@ jobs:
       - run: sudo apt-get install -y gcc-mips-linux-gnu
       - uses: actions/checkout@v2
       - run: make
+      - run: cp tools/bootrom.py serprog/
+      - uses: actions/upload-artifact@v3
+        with:
+          name: serprog
+          path: |
+            serprog/bootrom.py
+            serprog/README.md
+            serprog/serprog.bin
