@@ -240,7 +240,7 @@ void main(void) {
 			ack();
 			put_array(progname, 16);
 			break;
-		case S_CMD_S_BUSTYPE:
+		case S_CMD_S_BUSTYPE:;
 			uint8_t type = get_u8();
 			if (type == BUS_SPI)
 				ack();
@@ -256,7 +256,7 @@ void main(void) {
 			/* uint8_t on = */ get_u8();
 			ack();
 			break;
-		case S_CMD_O_SPIOP:
+		case S_CMD_O_SPIOP:;
 			uint32_t slen = get_u24();
 			uint32_t rlen = get_u24();
 			ack();
