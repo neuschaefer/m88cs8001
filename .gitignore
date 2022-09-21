@@ -1,0 +1,4 @@
+*.bin
+*.lzma
+*.o
+*.elf
