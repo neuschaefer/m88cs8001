@@ -424,9 +424,9 @@ static void fb_present(FB fb) {
 	chroma_set_active(fb.chroma);
 }
 
-FB fb_bootsplash;
-void *luma_buffers[2];
-void *chroma_buffers[2];
+static FB fb_bootsplash;
+static void *luma_buffers[2];
+static void *chroma_buffers[2];
 
 static void fb_init(void) {
 	// TODO: Identify bootsplash, make backups, etc.
@@ -901,7 +901,7 @@ static void check_inputs(void)
 	}
 }
 
-uint32_t last_frame;
+static uint32_t last_frame;
 
 static bool waiting_for_next_frame(void)
 {
