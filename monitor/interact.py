@@ -266,7 +266,7 @@ class Lolmon:
 
     def call_linux_and_run_microcom(self, addr):
         self.call(addr, 0, 0xffffffff, 0)
-        os.system(f'busybox microcom -s 115200 /dev/ttyUSB0')
+        os.system(f'busybox microcom -s {self.s.baudrate} /dev/ttyUSB0')
 
 class Block:
     def __init__(self, lolmon, base=None):
