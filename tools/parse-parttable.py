@@ -121,6 +121,7 @@ class Image:
 
         # Extract partitions
         for e in self.get():
+            info = {}
             offset = TABLE_BASE + e.offset
             self.f.seek(offset)
             d = self.f.read(e.size)
@@ -137,10 +138,8 @@ class Image:
             with open(f'{output_dir}/{filename}', 'wb') as out:
                 out.write(d)
                 out.close()
-            info = {
-                    'filename': filename,
-                    'partition_entry': EntryInfo(e).to_json()
-            }
+            info['filename'] = filename
+            info['partition_entry'] = EntryInfo(e).to_json()
             if EntryInfo(e).has_fixed_address():
                 info['fixed_addr'] = f'{offset:#x}'
             manifest['partitions'].append(info)
