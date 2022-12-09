@@ -45,7 +45,7 @@ class Image:
                 print(f'Partition {i}:  {e}')
             else:
                 name = e.name.decode('ascii').strip('\0')
-                print(f'{i:2}  {e.flags:08x} {e.offset:8x} {e.size:8x} {e.crc:08x} {e.id:02x} {name}')
+                print(f'{i:2}  {e.flags:08x} {e.offset+TABLE_BASE:8x} {e.size:8x} {e.crc:08x} {e.id:02x} {name}')
             if e.crc != NCRC:
                 self.f.seek(TABLE_BASE + e.offset)
                 d = self.f.read(e.size)

@@ -68,7 +68,7 @@ if __name__ == '__main__':
     parser.add_argument('--patch', help='patch partition entry with given name')
     parser.add_argument('--raw', help='add data without compression')
     parser.add_argument('--lzma', help='add data, compress with LZMA')
-    parser.add_argument('--addr', help='change base address of partition')
+    parser.add_argument('--addr', help='change base address of partition (relative to start of file)')
     args = parser.parse_args()
 
     img = Image(args.image)
