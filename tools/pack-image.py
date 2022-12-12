@@ -57,6 +57,51 @@ def compress_lzma(data):
     out[5:5+8] = struct.pack('<Q', len(data))
     return bytes(out)
 
+class Allocator:
+    def __init__(self, size):
+        self.size = size
+        self.map = { 0: (0, size) }
+
+    def __repr__(self):
+        return '[ ' + ', '.join([f'({start:#x}, {size:#x})' for start, size in self.map.values()]) + ' ]'
+
+    def insert(self, start, size):
+        if size > 0:
+            self.map[start] = (start, size)
+
+    def iter(self):
+        for s in sorted(self.map):
+            yield self.map[s]
+
+    def alloc_fixed(self, start, size):
+        for mstart, msize in self.iter():
+            #print(f'{start:#x}:{size:#x} vs {self}')
+            if start >= mstart and start - mstart <= msize:
+                # Found the region that includes the requested range. Now cut a hole in it.
+                #  mstart       start      start+size             mstart+msize
+                #  [             ][xxxxxxxxxxxx][                            ]
+                del self.map[mstart]
+                self.insert(mstart, start - mstart)
+                self.insert(start+size, mstart+msize - (start+size))
+                return start
+        raise Exception(f'Allocation failure for start {start:#x}, size {size:#x} in {self}')
+
+    def alloc_free(self, size):
+        for mstart, msize in self.iter():
+            #print(f'{size:#x} vs {mstart:#x}:{msize:#x}')
+            if msize >= size:
+                # Found a block that is big enough.
+                del self.map[mstart]
+                self.insert(mstart + size, msize - size)
+                return mstart
+        raise Exception(f'Allocation failure for size {size:#x} in {self}')
+
+    def alloc(self, start, size):
+        if start:
+            return self.alloc_fixed(start, size)
+        else:
+            return self.alloc_free(size)
+
 class Image:
     def __init__(self, directory):
         with open(f'{directory}/manifest.json', 'r') as f:
@@ -74,8 +119,8 @@ class Image:
             f = open(output_file, 'xb')
 
         d = bytearray(int(self.manifest['metadata']['filesize']))
+        alloc = Allocator(len(d))
         entries = []
-        o = 0
 
         if args.fill_ff:
             d[0:len(d)] = len(d) * b'\xff'
@@ -83,16 +128,19 @@ class Image:
         for p in self.manifest['partitions']:
             if 'fixed_addr' in p:
                 o = int(p['fixed_addr'], 0)
+            else:
+                o = None
 
             if 'special' in p:
                 assert p['special'] == 'partition_table'
-                partition_table_offset = o
-                o += 0x400 # skip and fill in later
+                assert 'fixed_addr' in p
+                partition_table_offset = alloc.alloc(o, 0x400) # skip and fill in later
             else:
                 pd = open(f'{args.directory}/{p["filename"]}', 'rb').read()
                 if 'compression' in p:
                     assert p['compression'] == 'lzma'
                     pd = compress_lzma(pd)
+                o = alloc.alloc(o, len(pd))
                 d[o:o+len(pd)] = pd
                 if 'partition_entry' in p:
                     ent = dict(p['partition_entry'])
@@ -103,8 +151,6 @@ class Image:
                     ent['serial'] = ent['serial'].encode('ascii')
                     ent['name'] = ent['name'].encode('ascii').ljust(8, b'\0')
                     entries.append(ent)
-                o += len(pd)
-
 
         # Build partition table
         num_entries = len(entries)
