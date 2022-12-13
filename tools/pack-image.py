@@ -122,8 +122,7 @@ class Image:
         alloc = Allocator(len(d))
         entries = []
 
-        if args.fill_ff:
-            d[0:len(d)] = len(d) * b'\xff'
+        d[0:len(d)] = len(d) * bytes([int(args.fill, 0)])
 
         for p in self.manifest['partitions']:
             if 'fixed_addr' in p:
@@ -180,7 +179,7 @@ parser.add_argument('directory', help='directory with partitions and manifest.js
 parser.add_argument('-o', '--output-file', help='filename (defaults to name specified in manifest.json')
 parser.add_argument('-f', '--force', help='overwrite output file when it already exists', action='store_true')
 parser.add_argument('--verify', help='verify the hash of the resulting file', action='store_true')
-parser.add_argument('--fill-ff', help='fill empty space with 0xff', action='store_true')
+parser.add_argument('--fill', help='fill empty space with given byte (default 0xff)', action='store_true', default='0xff')
 args = parser.parse_args()
 
 img = Image(args.directory)
