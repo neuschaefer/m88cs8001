@@ -1,4 +1,4 @@
-DIRS=monitor serprog talk
+DIRS=monitor serprog talk talk2
 
 all: $(DIRS)
 

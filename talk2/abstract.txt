@@ -1,0 +1,15 @@
+[DE]
+
+In diesem Vortrag geht es darum was man mit einem günstigen Sat-Receiver so
+anstellen kann, außer Fernsehen zu gucken. Dabei handelt es sich nämlich um
+einen kleinen Computer der auch gehackt werden kann. Es geht um
+Firmware-Formate, Framebuffer, Eigenheiten der MIPS-Architektur, und ein
+bisschen Linux.
+
+
+[EN]
+
+In this talk, I will talk about the things that can be done with a cheap sat
+receiver, aside from watching TV. It turns out to be a little computer that can
+be hacked. There will be firmware file formats, framebuffers, idiosyncracies of
+the MIPS architecture, and a little bit of Linux.
