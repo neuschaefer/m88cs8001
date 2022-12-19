@@ -285,6 +285,26 @@ static void *memset(void *s, int c, size_t n)
 	return s;
 }
 
+/* Non-standard version which doesn't return anything. Less opportunity for bugs. */
+static void strcpy(char *dest, const char *src)
+{
+	while (*src)
+		*dest++ = *src++;
+
+	*dest = '\0';
+}
+
+static void strcat(char *dest, const char *src)
+{
+	while (*dest)
+		dest++;
+
+	while (*src)
+		*dest++ = *src++;
+
+	*dest = '\0';
+}
+
 
 /* Arena allocator */
 
@@ -962,10 +982,10 @@ int main(void)
 	arena_init();
 	fb_init();
 
-	fp_set_digit(0, 0b0111111);
-	fp_set_digit(1, 0b1101101);
-	fp_set_digit(2, 0b1110001);
-	fp_set_digit(3, 0b0111001);
+	fp_set_digit(0, 0b1110001);
+	fp_set_digit(1, 0b0000100);
+	fp_set_digit(2, 0b1010000);
+	fp_set_digit(3, 0b1111001);
 
 	main_loop();
 }

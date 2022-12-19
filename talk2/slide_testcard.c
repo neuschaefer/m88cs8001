@@ -32,10 +32,24 @@ static void testcard_init(void *ctx)
 	for (int y = 0; y < 1024; y++)
 	for (int x = 0; x < 1024; x++) {
 		int stripe = y / 114;
-
 		LUMA  [YPX (x + 28, y + 28)] = x / 4;
 		CHROMA[CrPX(x + 28, y + 28)] = (stripe % 3) * 127;
 		CHROMA[CbPX(x + 28, y + 28)] = (stripe / 3) * 127;
+	}
+
+	/* Labels */
+	for (int stripe = 0; stripe < 9; stripe++) {
+		static const char *const chroma_values[3] = { "-1", " 0", "+1" };
+		int y = (stripe + 1) * 114 / 2;
+		char buf[20];
+
+		// Cb=-1, Cr=+1 ...
+		strcpy(buf, "Cb=");
+		strcat(buf, chroma_values[stripe / 3]);
+		strcat(buf, ", Cr=");
+		strcat(buf, chroma_values[stripe % 3]);
+
+		font_draw(font_default, fb, 30, y, 2, COLOR_WHITE, TRANSPARENT, buf);
 	}
 
 	/* Chroma space at different lumas */
@@ -56,7 +70,16 @@ static void testcard_init(void *ctx)
 			CHROMA[CrPX(x + X, y + Y)] = x;
 			CHROMA[CbPX(x + X, y + Y)] = y;
 		}
+
+		// Y'= 0/11 ...
+		char buf[10] = "Y'=11/11";
+		buf[3] = (panel / 10)? '1':' ';
+		buf[4] = '0' + panel % 10;
+		font_draw(font_default, fb, X/2+4, Y/2+30, 2, COLOR_WHITE, TRANSPARENT, buf);
 	}
+
+	/* Headline (in foreground) */
+	font_draw_headline(font_default, fb, COLOR_BLACK, COLOR_GREY, "        Y'CbCr");
 
 	fb_present(fb);
 }

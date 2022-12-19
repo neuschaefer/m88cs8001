@@ -148,7 +148,7 @@ static void part_init(void *ctx, int num)
 
 	//font_draw_text_window(font_default, "hexdump -C flash.bin", part_table_hexdump);
 
-	int hexdump_x = 420;
+	int hexdump_x = 380;
 	int hexdump_y = HEADLINE_Y;
 
 	if (num < 2)
@@ -160,7 +160,7 @@ static void part_init(void *ctx, int num)
 				"parse-parttable.py --list flash.bin", part_table_decoded);
 
 	if (num == 2)
-		font_draw_text_window(font_default, fb, 380, MAIN_TEXT_Y,
+		font_draw_text_window(font_default, fb, hexdump_x, MAIN_TEXT_Y,
 				"parse-parttable.py --extract flash.bin", render_part_table_extract());
 
 	if (num >= 3) {

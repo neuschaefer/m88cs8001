@@ -70,7 +70,7 @@ static void lumafound_update(void *ctx)
 	for (int i = 0; i < 20; i++) {
 		if (l->i < 256) {
 			if (l->j < 256) {
-				luma_set(fb.luma, 200 + l->j, 500 + l->i, YCbCr(l->j, 0, 0));
+				luma_set(fb.luma, 800 + l->j, 300 + l->i, YCbCr(l->j, 0, 0));
 				l->j++;
 			} else {
 				l->j = 0;

@@ -1,0 +1,162 @@
+{
+    "partitions": [
+        {
+            "fixed_addr": "0x0",
+            "filename": "boot.bin"
+        },
+        {
+            "fixed_addr": "0x10000",
+            "special": "partition_table"
+        },
+        {
+            "fixed_addr": "0x100000",
+            "filename": "../talk.bin"
+        },
+        {
+            "filename": "av_cpu.bin",
+            "partition_entry": {
+                "unk_0": 67108864,
+                "flags": 4194304,
+                "unk_8": 3145749,
+                "id": "0xfc",
+                "unk_d": 0,
+                "unk_e": 1,
+                "serial": "00000001",
+                "name": "av_cpu",
+                "unk_2c": 100730854
+            }
+        },
+        {
+            "compression": "lzma",
+            "filename": "img.bin",
+            "partition_entry": {
+                "unk_0": 3680778,
+                "flags": 0,
+                "unk_8": 0,
+                "id": "0x89",
+                "unk_d": 0,
+                "unk_e": 1,
+                "serial": "00000001",
+                "name": "img",
+                "unk_2c": 100730854
+            }
+        },
+        {
+            "compression": "lzma",
+            "filename": "demo.bin",
+            "partition_entry": {
+                "unk_0": 2697482,
+                "flags": 0,
+                "unk_8": 0,
+                "id": "0x88",
+                "unk_d": 0,
+                "unk_e": 1,
+                "serial": "00000001",
+                "name": "monitor",
+                "unk_2c": 100730854
+            }
+        },
+        {
+            "filename": "ir1.bin",
+            "partition_entry": {
+                "unk_0": 3680778,
+                "flags": 0,
+                "unk_8": 0,
+                "id": "0xaf",
+                "unk_d": 0,
+                "unk_e": 1,
+                "serial": "00000001",
+                "name": "ir1",
+                "unk_2c": 100730854
+            }
+        },
+        {
+            "filename": "ir2.bin",
+            "partition_entry": {
+                "unk_0": 2697482,
+                "flags": 0,
+                "unk_8": 0,
+                "id": "0xb1",
+                "unk_d": 0,
+                "unk_e": 1,
+                "serial": "00000001",
+                "name": "ir2",
+                "unk_2c": 100730854
+            }
+        },
+        {
+            "filename": "fp.bin",
+            "partition_entry": {
+                "unk_0": 2697482,
+                "flags": 0,
+                "unk_8": 0,
+                "id": "0xb0",
+                "unk_d": 0,
+                "unk_e": 1,
+                "serial": "00000001",
+                "name": "fp",
+                "unk_2c": 100730854
+            }
+        },
+        {
+            "filename": "sdram.bin",
+            "partition_entry": {
+                "unk_0": 2697482,
+                "flags": 0,
+                "unk_8": 0,
+                "id": "0xbb",
+                "unk_d": 0,
+                "unk_e": 1,
+                "serial": "00000001",
+                "name": "sdram",
+                "unk_2c": 100730854
+            }
+        },
+        {
+            "filename": "misc.bin",
+            "partition_entry": {
+                "unk_0": 2697482,
+                "flags": 0,
+                "unk_8": 0,
+                "id": "0xb4",
+                "unk_d": 0,
+                "unk_e": 1,
+                "serial": "00000001",
+                "name": "misc",
+                "unk_2c": 100730854
+            }
+        },
+        {
+            "filename": "cas.bin",
+            "partition_entry": {
+                "unk_0": 2697482,
+                "flags": 0,
+                "unk_8": 0,
+                "id": "0x7d",
+                "unk_d": 0,
+                "unk_e": 1,
+                "serial": "00000001",
+                "name": "cas",
+                "unk_2c": 100730854
+            }
+        },
+        {
+            "filename": "../blåwitch2.jpg",
+            "partition_entry": {
+                "unk_0": 2697482,
+                "flags": 0,
+                "unk_8": 0,
+                "id": "0x93",
+                "unk_d": 0,
+                "unk_e": 1,
+                "serial": "00000001",
+                "name": "logo",
+                "unk_2c": 100730854
+            }
+        }
+    ],
+    "metadata": {
+        "filename": "base.bin",
+        "filesize": 4194304
+    }
+}
