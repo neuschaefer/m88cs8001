@@ -30,7 +30,7 @@ static void write16(unsigned long addr, uint16_t value) { *(volatile uint16_t *)
 static void write32(unsigned long addr, uint32_t value) { *(volatile uint32_t *)addr = value; }
 
 
-/* Cache manipulation */
+/* Cache manipulation and assembly calls */
 
 #define CACHE_LINE 32
 #define CACHE_LINE_MASK (CACHE_LINE - 1)
@@ -42,6 +42,9 @@ static void cache_flush_range(unsigned long addr, size_t len)
 	for (unsigned long p = addr & ~CACHE_LINE_MASK; p < addr + len; p += CACHE_LINE)
 		synci_line_p(p);
 }
+
+extern char do_call[1];
+static void (* do_call_p)(uint32_t fn, uint32_t a1, uint32_t a2, uint32_t a3) = (void *)do_call;
 
 
 /* UART driver */
@@ -361,6 +364,7 @@ enum {
 	COLOR_GREY_F0 = YCbCr(0xf0, 0x80, 0x80),
 	COLOR_GREY_D0 = YCbCr(0xd0, 0x80, 0x80),
 	COLOR_RED = YCbCr(0x20, 0x80, 0xff),
+	COLOR_GREEN = YCbCr(0x40, 0x00, 0x00),
 };
 
 
@@ -828,6 +832,7 @@ struct slide {
 	void (*init)(void *);
 	void (*update)(void *);
 	void (*exit)(void *);
+	void (*action)(void *);
 	size_t ctx_size;
 };
 
@@ -839,6 +844,13 @@ struct slide {
 #include "slide_fbhex.c"
 #include "slide_corruption.c"
 #include "slide_testcard.c"
+#include "slide_printk.c"
+#include "slide_platform.c"
+#include "slide_irq.c"
+#include "slide_uart.c"
+#include "slide_usb.c"
+#include "slide_debug.c"
+#include "slide_linux.c"
 #include "slide_conclusion.c"
 #include "slide_endcard.c"
 
@@ -861,12 +873,27 @@ static const struct slide *const slides[] = {
 	&slide_corruption1,
 	&slide_lumafound,
 	&slide_testcard,
+	&slide_linux0,
+	&slide_linux1,
+	&slide_zboot,
+	&slide_platform,
+	&slide_irq,
+	&slide_veic0,
+	&slide_veic1,
+	&slide_uart0,
+	&slide_uart1,
+	&slide_usb0,
+	&slide_usb1,
+	&slide_usb2,
+	&slide_debug0,
+	&slide_debug1,
+	&slide_debug2,
 	&slide_conclusion,
 	&slide_endcard,
 };
 
 static int current_slide, next_slide;
-static bool quit_requested;
+static bool quit_requested, action_requested;
 static void *slide_ctx;
 static uint8_t previous_fp_key = 0;
 
@@ -876,6 +903,17 @@ static void change_slide(int target)
 	    target < (int)ARRAY_LENGTH(slides))
 		next_slide = target;
 }
+
+static void jump_to_slide_linux1(void)
+{
+	for (size_t i = 0; i < ARRAY_LENGTH(slides); i++) {
+		if (slides[i] == &slide_linux1) {
+			next_slide = i;
+			return;
+		}
+	}
+}
+
 
 static void check_inputs(void)
 {
@@ -898,6 +936,9 @@ static void check_inputs(void)
 		case 'G':
 			change_slide(ARRAY_LENGTH(slides) - 1);
 			break;
+		case '!':
+			action_requested = true;
+			break;
 		}
 	}
 
@@ -913,6 +954,7 @@ static void check_inputs(void)
 				change_slide(current_slide + 1);
 				break;
 			case 0x17: /* power */
+				action_requested = true;
 				break;
 			}
 		}
@@ -956,6 +998,12 @@ static void main_loop(void)
 				slide->init(slide_ctx);
 		}
 
+		if (action_requested) {
+			if (slide->action)
+				slide->action(slide_ctx);
+			action_requested = false;
+		}
+
 		if (slide->update)
 			slide->update(slide_ctx);
 
@@ -986,6 +1034,9 @@ int main(void)
 	fp_set_digit(1, 0b0000100);
 	fp_set_digit(2, 0b1010000);
 	fp_set_digit(3, 0b1111001);
+
+	if (reset_cause_was_wdt())
+		jump_to_slide_linux1();
 
 	main_loop();
 }

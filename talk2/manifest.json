@@ -13,6 +13,10 @@
             "filename": "../talk.bin"
         },
         {
+            "fixed_addr": "0x110000",
+            "filename": "../vmlinuz-dtb"
+        },
+        {
             "filename": "av_cpu.bin",
             "partition_entry": {
                 "unk_0": 67108864,

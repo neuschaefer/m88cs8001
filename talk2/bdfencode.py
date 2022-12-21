@@ -110,4 +110,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     bdf = BDF(args.file)
-    bdf.encode_c(args.name, 'ÄÖÜäöüß€')
+    bdf.encode_c(args.name, 'ÄÖÜäöüß€®')

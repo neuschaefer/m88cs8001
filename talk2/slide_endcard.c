@@ -28,6 +28,7 @@ static const char draw_cccac_source[] =
 "                int col = i / 4;\n"
 "                int row = i % 4;\n"
 "\n"
+"                #define BIT(x) (1UL << (x))\n"
 "                int bit = 0xCCCAC & BIT(20-1 - row - 4 * col);\n"
 "                fb_fill_rect(fb, x + col*tile + 2, y + row*tile + 2, tile-4, tile-4,\n"
 "                                bit? COLOR_WHITE:COLOR_BLACK);\n"
@@ -44,7 +45,8 @@ static void endcard_init(void *ctx) {
 	font_draw_headline(font_default, fb, COLOR_BLACK, COLOR_GREY, "The End");
 
 	font_draw_main(font_default, fb, 0, "- Thank you for listening!");
-	font_draw_main(font_default, fb, 1, "- Questions? :)");
+	font_draw_main(font_default, fb, 1, "- GitHub: neuschaefer/m88cs8001");
+	font_draw_main(font_default, fb, 2, "- Questions? :)");
 
 	// CCCAC demo
 	//draw_cccac(fb, 606, 20, 60);
@@ -64,6 +66,14 @@ static void endcard_init(void *ctx) {
 //       - gruetzkopf 🦈 Ghidra team 🦈 kimiko festival ...
 const char *const shoutouts[] = {
 	"shoutouts to:  ",
+	"Haecksen",
+	"r3s",
+	"das-labor.org",
+	"archive.org",
+	"Ghidra developers",
+	"Montage LZ",
+	"zerforschung",
+	"Kimiko Festival",
 	"Alyssa Rosenzweig",
 	"Atomic Shrimp",
 	"whitequark",
@@ -73,17 +83,13 @@ const char *const shoutouts[] = {
 	"foone",
 	"0xide",
 	"HAINBACH",
-	"Slavfox",
-	"Kimiko Festival",
 	"FX",
 	"Tech Ingredients",
 	"Strange Parts",
-	"archive.org",
-	"Ghidra developers",
-	"Montage LZ",
-	"zerforschung",
 	"gruetzkopf",
+	"Mimoja",
 	"Rich Felker",
+	"Slavfox",
 	"OSFC",
 	"all hackers all over the world"
 };
