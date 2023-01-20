@@ -6,7 +6,7 @@ jobs:
     steps:
       - run: sudo apt-get update
       - run: sudo apt-get install -y gcc-mips-linux-gnu
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - run: make
       - run: cp tools/bootrom.py serprog/
       - uses: actions/upload-artifact@v3
