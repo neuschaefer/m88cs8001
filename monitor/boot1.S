@@ -1,11 +1,14 @@
 #include <regdef.h>
 
-#define TAGLO $28
+.word	0x5a7d9cbf
+
+.org	0x14
+.word	0x2000
 
 .org	0x400
 
 entry:
-	li	t1, 'A'
+	li	t1, '*'
 	lui	t0, 0xbf54
 	sh	t1, 0x100(t0)
 
