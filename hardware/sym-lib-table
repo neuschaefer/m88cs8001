@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "montage-lz")(type "KiCad")(uri "${KIPRJMOD}/montage-lz.kicad_sym")(options "")(descr ""))
+)
